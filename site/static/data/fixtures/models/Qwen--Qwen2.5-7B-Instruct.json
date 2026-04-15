@@ -1,0 +1,131 @@
+{
+  "model": "Qwen/Qwen2.5-7B-Instruct",
+  "runs": [
+    {
+      "date": "2026-04-14",
+      "backend": "vllm",
+      "metrics": {
+        "ttft_mean": 72.1,
+        "ttft_p95": 118.4,
+        "tpot_mean": 15.8,
+        "e2e_mean": 1105.0,
+        "tokens_per_sec": 112.7,
+        "success_rate": 1.0,
+        "n_requests": 40
+      },
+      "conversations": [
+        {
+          "name": "short-qa",
+          "metrics": {
+            "ttft_mean": 55.0,
+            "ttft_p95": 82.0,
+            "tpot_mean": 12.5,
+            "e2e_mean": 460.0,
+            "tokens_per_sec": 128.4,
+            "success_rate": 1.0,
+            "n_requests": 10
+          }
+        },
+        {
+          "name": "coding",
+          "metrics": {
+            "ttft_mean": 79.0,
+            "ttft_p95": 130.0,
+            "tpot_mean": 16.8,
+            "e2e_mean": 1380.0,
+            "tokens_per_sec": 108.2,
+            "success_rate": 1.0,
+            "n_requests": 10
+          }
+        },
+        {
+          "name": "multi-turn",
+          "metrics": {
+            "ttft_mean": 73.5,
+            "ttft_p95": 120.0,
+            "tpot_mean": 15.5,
+            "e2e_mean": 1080.0,
+            "tokens_per_sec": 113.5,
+            "success_rate": 1.0,
+            "n_requests": 10
+          }
+        },
+        {
+          "name": "long-context",
+          "metrics": {
+            "ttft_mean": 160.0,
+            "ttft_p95": 210.0,
+            "tpot_mean": 19.5,
+            "e2e_mean": 2380.0,
+            "tokens_per_sec": 89.4,
+            "success_rate": 1.0,
+            "n_requests": 10
+          }
+        }
+      ]
+    },
+    {
+      "date": "2026-04-13",
+      "backend": "vllm",
+      "metrics": {
+        "ttft_mean": 75.8,
+        "ttft_p95": 124.0,
+        "tpot_mean": 16.2,
+        "e2e_mean": 1145.0,
+        "tokens_per_sec": 109.3,
+        "success_rate": 1.0,
+        "n_requests": 40
+      },
+      "conversations": [
+        {
+          "name": "short-qa",
+          "metrics": {
+            "ttft_mean": 57.0,
+            "ttft_p95": 85.0,
+            "tpot_mean": 12.8,
+            "e2e_mean": 475.0,
+            "tokens_per_sec": 124.8,
+            "success_rate": 1.0,
+            "n_requests": 10
+          }
+        },
+        {
+          "name": "coding",
+          "metrics": {
+            "ttft_mean": 82.0,
+            "ttft_p95": 136.0,
+            "tpot_mean": 17.1,
+            "e2e_mean": 1420.0,
+            "tokens_per_sec": 105.0,
+            "success_rate": 1.0,
+            "n_requests": 10
+          }
+        },
+        {
+          "name": "multi-turn",
+          "metrics": {
+            "ttft_mean": 76.0,
+            "ttft_p95": 124.0,
+            "tpot_mean": 15.8,
+            "e2e_mean": 1110.0,
+            "tokens_per_sec": 110.5,
+            "success_rate": 1.0,
+            "n_requests": 10
+          }
+        },
+        {
+          "name": "long-context",
+          "metrics": {
+            "ttft_mean": 165.0,
+            "ttft_p95": 216.0,
+            "tpot_mean": 20.0,
+            "e2e_mean": 2450.0,
+            "tokens_per_sec": 87.0,
+            "success_rate": 1.0,
+            "n_requests": 10
+          }
+        }
+      ]
+    }
+  ]
+}

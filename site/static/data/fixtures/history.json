@@ -1,0 +1,28 @@
+{
+  "series": [
+    {
+      "model": "meta-llama/Llama-3.1-8B-Instruct",
+      "backend": "vllm",
+      "points": [
+        { "date": "2026-04-13", "ttft_mean": 91.0, "tokens_per_sec": 95.1 },
+        { "date": "2026-04-14", "ttft_mean": 87.3, "tokens_per_sec": 98.4 }
+      ]
+    },
+    {
+      "model": "meta-llama/Llama-3.1-8B-Instruct",
+      "backend": "llamacpp",
+      "points": [
+        { "date": "2026-04-13", "ttft_mean": 218.0, "tokens_per_sec": 45.8 },
+        { "date": "2026-04-14", "ttft_mean": 210.6, "tokens_per_sec": 47.2 }
+      ]
+    },
+    {
+      "model": "Qwen/Qwen2.5-7B-Instruct",
+      "backend": "vllm",
+      "points": [
+        { "date": "2026-04-13", "ttft_mean": 75.8, "tokens_per_sec": 109.3 },
+        { "date": "2026-04-14", "ttft_mean": 72.1, "tokens_per_sec": 112.7 }
+      ]
+    }
+  ]
+}
