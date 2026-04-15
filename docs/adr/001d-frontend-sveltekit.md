@@ -31,7 +31,7 @@ Benchmark results (JSONL) must be presented on a website supporting:
 ### Structure
 
 ```
-site/
+front/
 ├── scripts/
 │   └── build-data.js            # Copies pre-aggregated JSON to static/data/
 ├── src/

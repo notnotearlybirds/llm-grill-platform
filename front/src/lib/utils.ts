@@ -1,3 +1,16 @@
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+export function cn(...inputs: ClassValue[]) {
+	return twMerge(clsx(inputs));
+}
+
+/** Graceful null/undefined metric renderer */
+export function formatMetric(value: number | null | undefined): string {
+	if (value === null || value === undefined) return '—';
+	return String(value);
+}
+
 /**
  * Format a number or null as a string with optional unit.
  * Null renders as an em-dash.

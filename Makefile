@@ -15,9 +15,9 @@ help:
 install:
 	uv sync --all-extras
 
-.PHONY: install-site ## 📦 Install site dependencies (Node)
-install-site:
-	cd site && npm ci
+.PHONY: install-front ## 📦 Install front dependencies (Node)
+install-front:
+	cd front && npm ci
 
 # ==============================================================================
 # CODE QUALITY
@@ -61,13 +61,13 @@ sweep:
 	uv run python -m pipeline.sweep
 
 # ==============================================================================
-# SITE
+# FRONT
 # ==============================================================================
 
-.PHONY: site-dev ## 🌐 Serve the site locally
-site-dev:
-	cd site && npm run dev
+.PHONY: front-dev ## 🌐 Serve the front locally
+front-dev:
+	cd front && npm run dev
 
-.PHONY: site-build ## 🏗️  Build the static site
-site-build:
-	cd site && npm run build
+.PHONY: front-build ## 🏗️  Build the static front
+front-build:
+	cd front && npm run build

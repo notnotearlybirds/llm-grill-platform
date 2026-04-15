@@ -2,6 +2,7 @@
 	import type { PageData } from './$types';
 	import TimeSeriesChart from '$lib/components/TimeSeriesChart.svelte';
 	import { shortName } from '$lib/utils';
+	import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '$lib/components/ui/card';
 
 	interface Props {
 		data: PageData;
@@ -46,35 +47,29 @@
 	<title>History — llm-grill.fr</title>
 </svelte:head>
 
-<h1>Performance History</h1>
-<p class="subtitle">Time-series evolution per (model, backend)</p>
+<div class="mb-6">
+	<h1 class="text-3xl font-bold tracking-tight">Performance History</h1>
+	<p class="text-muted-foreground mt-1 text-sm">Time-series evolution per (model, backend)</p>
+</div>
 
-<section>
-	<h2>TTFT mean over time</h2>
-	<TimeSeriesChart series={ttftSeries} title="TTFT mean (ms)" unit=" ms" />
-</section>
+<div class="flex flex-col gap-6">
+	<Card>
+		<CardHeader>
+			<CardTitle>TTFT mean over time</CardTitle>
+			<CardDescription>Time to first token (ms) — lower is better</CardDescription>
+		</CardHeader>
+		<CardContent>
+			<TimeSeriesChart series={ttftSeries} title="TTFT mean (ms)" unit=" ms" />
+		</CardContent>
+	</Card>
 
-<section>
-	<h2>Tokens/s over time</h2>
-	<TimeSeriesChart series={tpsSeries} title="Tokens/s" unit=" tok/s" />
-</section>
-
-<style>
-	h1 {
-		margin: 0 0 0.25rem;
-		font-size: 1.75rem;
-	}
-	.subtitle {
-		color: #64748b;
-		margin: 0 0 1.5rem;
-		font-size: 0.9rem;
-	}
-	section {
-		margin-bottom: 3rem;
-	}
-	h2 {
-		font-size: 1.1rem;
-		margin-bottom: 0.75rem;
-		color: #334155;
-	}
-</style>
+	<Card>
+		<CardHeader>
+			<CardTitle>Tokens/s over time</CardTitle>
+			<CardDescription>Throughput — higher is better</CardDescription>
+		</CardHeader>
+		<CardContent>
+			<TimeSeriesChart series={tpsSeries} title="Tokens/s" unit=" tok/s" />
+		</CardContent>
+	</Card>
+</div>
