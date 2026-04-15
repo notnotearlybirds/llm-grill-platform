@@ -15,6 +15,7 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "pytest-mock>=3.12",
+    "pytest-cov>=7.1.0",
     "pytest-asyncio>=0.23",
 ]
 
@@ -28,3 +29,15 @@ packages = ["pipeline"]
 [tool.pytest.ini_options]
 testpaths = ["pipeline/tests"]
 asyncio_mode = "auto"
+
+[tool.coverage.run]
+# Composition roots and adapters around external tech (HF, Scaleway, Terraform)
+# are covered by integration/e2e tests, not unit tests.
+omit = [
+    "pipeline/run.py",
+    "pipeline/aggregate.py",
+    "pipeline/sweep.py",
+    "pipeline/adapters/huggingface/*",
+    "pipeline/adapters/scaleway/*",
+    "pipeline/adapters/terraform/*",
+]

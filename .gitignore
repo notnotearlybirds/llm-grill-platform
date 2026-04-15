@@ -1,1 +1,6 @@
-.claude/worktreespipeline/**/__pycache__/
+.claude/worktrees
+.claude/.fuse_*
+
+**/__pycache__/
+
+.coverage
