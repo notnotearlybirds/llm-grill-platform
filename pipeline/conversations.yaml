@@ -1,0 +1,102 @@
+# Standard benchmark conversations (ADR 001b).
+# The long-context prompt truncates the public-domain opening of the
+# English Wikipedia article on "Photosynthesis" (CC BY-SA 4.0),
+# retrieved from https://en.wikipedia.org/wiki/Photosynthesis.
+conversations:
+  - name: short-qa
+    turns:
+      - role: user
+        content: "What is the capital of France? Answer in one short sentence."
+
+  - name: coding
+    turns:
+      - role: user
+        content: |
+          Write a Python function `is_prime(n)` that returns True if n is a
+          prime number and False otherwise. Include a short docstring and
+          handle edge cases (n < 2, even numbers). Provide the function only,
+          no surrounding prose.
+
+  - name: multi-turn
+    turns:
+      - role: user
+        content: "I'd like to plan a 3-day trip to Kyoto in April. What is the best area to stay in?"
+      - role: user
+        content: "Great. For those three days, can you suggest one temple and one food experience per day?"
+      - role: user
+        content: "Finally, summarise the plan as a compact day-by-day itinerary."
+
+  - name: long-context
+    turns:
+      - role: user
+        content: |
+          Read the following passage carefully, then answer the question at the end.
+
+          Photosynthesis is a biological process used by many cellular
+          organisms to convert light energy into chemical energy, which is
+          stored in organic compounds that can later be released to fuel the
+          organism's activities. Some of this chemical energy is stored in
+          carbohydrate molecules, such as sugars and starches, which are
+          synthesised from carbon dioxide and water. Most plants, algae, and
+          cyanobacteria perform photosynthesis; such organisms are called
+          photoautotrophs. Photosynthesis is largely responsible for producing
+          and maintaining the oxygen content of the Earth's atmosphere, and
+          supplies most of the biological energy necessary for complex life on
+          Earth. Photosynthesis is usually divided into two stages: the
+          light-dependent reactions and the light-independent (or dark)
+          reactions. In the light-dependent reactions, which take place at the
+          thylakoid membrane, chlorophyll absorbs light and uses that energy
+          to split water molecules, releasing oxygen as a by-product and
+          producing the energy carriers ATP and NADPH. In the
+          light-independent reactions, which occur in the stroma of the
+          chloroplast, the Calvin cycle fixes atmospheric carbon dioxide into
+          carbohydrates using the ATP and NADPH from the previous stage.
+          Although the two sets of reactions are named for their relationship
+          with light, both depend indirectly on light: the dark reactions
+          cannot proceed indefinitely without the products of the
+          light-dependent reactions. Plants typically convert light into
+          chemical energy with a photosynthetic efficiency of around 3 to 6
+          percent. Actual plant productivity varies with the wavelength of the
+          light, the intensity of the light, the temperature, and the
+          proportion of carbon dioxide in the atmosphere. The overall chemical
+          equation for photosynthesis, in oxygenic organisms, is commonly
+          written as 6 CO2 + 6 H2O (+ light energy) -> C6H12O6 + 6 O2. The
+          first photosynthetic organisms probably evolved early in the
+          evolutionary history of life and most likely used reducing agents
+          such as hydrogen or hydrogen sulfide, rather than water, as sources
+          of electrons. Cyanobacteria appeared later; the excess oxygen they
+          produced contributed directly to the oxygenation of the Earth,
+          which rendered the evolution of complex life possible. Today, the
+          average rate of energy capture by photosynthesis globally is
+          approximately 130 terawatts, which is about eight times the current
+          power consumption of human civilization. Photosynthetic organisms
+          also convert around 100 to 115 billion tonnes of carbon into biomass
+          per year. Although photosynthesis can occur in different ways in
+          different species, some features are always the same. For example,
+          the process always begins when energy from light is absorbed by
+          proteins called photosynthetic reaction centres that contain
+          chlorophylls and other pigments. In plants, these proteins are held
+          inside organelles called chloroplasts, which are most abundant in
+          leaf cells, while in bacteria they are embedded in the plasma
+          membrane. In these light-dependent reactions, some energy is used to
+          strip electrons from suitable substances, such as water, producing
+          oxygen gas. The hydrogen freed by the splitting of water is used in
+          the creation of two further compounds that serve as short-term
+          stores of energy, enabling its transfer to drive other reactions:
+          these compounds are reduced nicotinamide adenine dinucleotide
+          phosphate (NADPH) and adenosine triphosphate (ATP), the "energy
+          currency" of cells. In plants, algae, and cyanobacteria, long-term
+          energy storage in the form of sugars is produced by a subsequent
+          sequence of light-independent reactions called the Calvin cycle.
+          Some bacteria use different mechanisms, such as the reverse Krebs
+          cycle, to achieve the same end. In the Calvin cycle, atmospheric
+          carbon dioxide is incorporated into already existing organic carbon
+          compounds, such as ribulose bisphosphate (RuBP). Using the ATP and
+          NADPH produced by the light-dependent reactions, the resulting
+          compounds are then reduced and removed to form further
+          carbohydrates, such as glucose. In other bacteria, different
+          mechanisms like the 3-hydroxypropionate cycle are employed to
+          achieve the same end.
+
+          Question: In two sentences, explain the overall purpose of
+          photosynthesis and why it matters for life on Earth.

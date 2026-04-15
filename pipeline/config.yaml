@@ -1,0 +1,13 @@
+discovery:
+  task: text-generation
+  sort: trending
+  max_size_gb: 75
+  limit: 50
+  include_patterns: ["*instruct*", "*chat*"]
+  exclude_patterns: []
+  exclude_models: []
+backends: [vllm, llamacpp]
+load:
+  concurrency: 10
+  iterations_per_conversation: 5
+  per_backend_timeout_s: 3600
