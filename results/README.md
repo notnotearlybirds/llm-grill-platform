@@ -18,7 +18,7 @@ results/
 
 - **Date**: `YYYY-MM-DD`, the calendar date of the nightly run.
 - **Slug**: HuggingFace `{org}/{name}` → `{org}--{name}` (e.g. `meta-llama/Llama-3.1-8B-Instruct` → `meta-llama--Llama-3.1-8B-Instruct`).
-- **Backend file**: one JSONL per backend (`vllm.jsonl`, `sglang.jsonl`, `llamacpp.jsonl`). A backend may be absent for a given model (e.g. no GGUF quantisation → no `llamacpp.jsonl`).
+- **Backend file**: one JSONL per backend (`vllm.jsonl`, `llamacpp.jsonl`). `llamacpp.jsonl` is absent when the model has no GGUF quantisation.
 
 ## JSONL format
 

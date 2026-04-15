@@ -21,7 +21,7 @@ type Leaderboard = LeaderboardEntry[];
 
 type LeaderboardEntry = {
   model: string;           // HF ID with "/"
-  backend: "vllm" | "sglang" | "llamacpp";
+  backend: "vllm" | "llamacpp";
   date: string;            // YYYY-MM-DD
   ttft_mean: number | null;
   ttft_p95: number | null;
@@ -42,7 +42,7 @@ type ModelDetail = {
   model: string;
   runs: Array<{
     date: string;
-    backend: "vllm" | "sglang" | "llamacpp";
+    backend: "vllm" | "llamacpp";
     metrics: RunMetrics;                     // aggregate over all conversations
     conversations: Array<{
       name: "short-qa" | "coding" | "multi-turn" | "long-context";
@@ -70,7 +70,7 @@ Time series for trend charts.
 type History = {
   series: Array<{
     model: string;
-    backend: "vllm" | "sglang" | "llamacpp";
+    backend: "vllm" | "llamacpp";
     points: Array<{
       date: string;
       ttft_mean: number | null;
