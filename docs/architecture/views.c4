@@ -22,7 +22,7 @@ views {
 
   // ─────────────────────────────────────────────────────────────────────────
   // Level 2 — Containers
-  // Deployable units: GH Actions runner, Pipeline, Terraform, H100s, Site, Pages
+  // Deployable units: GH Actions runner, Pipeline, Terraform, H100s, Front, Pages
   // ─────────────────────────────────────────────────────────────────────────
   view containers of llmgrill {
     title 'Containers — llm-grill-nightly'
@@ -55,7 +55,7 @@ views {
     include hf_hub
     include llmgrill.terraform
     include llmgrill.h100_vllm
-    include llmgrill.h100_llamacpp
+    include llmgrill.l40s_llamacpp
 
     autoLayout TopBottom
 
@@ -78,9 +78,9 @@ views {
     include llmgrill.pipeline
     include llmgrill.terraform
     include llmgrill.h100_vllm
-    include llmgrill.h100_llamacpp
+    include llmgrill.l40s_llamacpp
     include llmgrill.results_store
-    include llmgrill.site
+    include llmgrill.front
     include github.repo
     include github.pages
     include hf_hub
@@ -94,7 +94,7 @@ views {
     style element.tag = #external { color slate }
 
     style llmgrill.h100_vllm { color red }
-    style llmgrill.h100_llamacpp { color red }
+    style llmgrill.l40s_llamacpp { color red }
     style llmgrill.pipeline { color amber }
   }
 }

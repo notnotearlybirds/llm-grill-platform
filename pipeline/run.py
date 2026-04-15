@@ -182,16 +182,12 @@ class _LiveRunner:  # pragma: no cover - not exercised in dry-run
         self, machine: ProvisionedMachine, model_id: str, run_id: str
     ) -> list[dict]:
         raise NotImplementedError(
-            "Live benchmark runner is provisioned by infra (ADR 001a) and not part of this module."
+            "Live benchmark runner is provisioned by infra and not part of this module."
         )
 
 
-def main() -> int:
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="pipeline.run")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
-    return asyncio.run(_amain(dry_run=args.dry_run))
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(asyncio.run(_amain(dry_run=args.dry_run)))

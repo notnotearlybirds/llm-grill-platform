@@ -1,6 +1,6 @@
 # Aggregated JSON Schema Contract
 
-The three files under `results/aggregated/` are the frontend's only data source. The site build copies them to `static/data/` with no further computation.
+The three files under `results/aggregated/` are the frontend's only data source. The front build copies them to `static/data/` with no further computation.
 
 ## Conventions
 

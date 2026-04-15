@@ -19,13 +19,13 @@ model {
     pages = container 'GitHub Pages' {
       #external
       technology 'Static hosting'
-      description 'Serves the pre-built SvelteKit site from the main branch'
+      description 'Serves the pre-built SvelteKit front from the main branch'
     }
 
     repo = container 'Git Repository' {
       #storage
       technology 'Git / GitHub'
-      description 'Single source of truth: code, results/ JSONL, aggregated JSON, site build'
+      description 'Single source of truth: code, results/ JSONL, aggregated JSON, front build'
     }
   }
 
@@ -115,7 +115,7 @@ model {
     // ── Terraform + Scaleway infra ───────────────────────────────────────
     terraform = container 'Terraform (infra/)' {
       technology 'Terraform · Scaleway provider'
-      description 'Declares H100 instances via for_each on backends. Per-model workspace isolation. Cloud-init bootstraps CUDA + backend + model download.'
+      description 'Declares GPU instances via for_each on backends (H100 for vLLM, L40S for llama.cpp). Per-model workspace isolation. Cloud-init bootstraps CUDA + backend + model download.'
     }
 
     // ── GPU instances (ephemeral, 1 per backend per model) ───────────────
@@ -124,10 +124,10 @@ model {
       technology 'Scaleway H100-1-80G · vLLM'
       description 'cloud-init: pip install vllm → vllm serve {model_id} --tensor-parallel-size 1. llm-grill runs benchmarks locally, writes JSONL.'
     }
-    h100_llamacpp = container 'H100 — llama.cpp' {
+    l40s_llamacpp = container 'L40S — llama.cpp' {
       #gpu
-      technology 'Scaleway H100-1-80G · llama-cpp-python'
-      description 'cloud-init: pip install llama-cpp-python + download .gguf → start server. Only created when model has GGUF. llm-grill writes JSONL.'
+      technology 'Scaleway L40S · llama-cpp-python'
+      description 'cloud-init: pip install llama-cpp-python + download .gguf → start server. Only created when model has GGUF. L40S sufficient for GGUF quantized inference. llm-grill writes JSONL.'
     }
 
     // ── Results store (filesystem on runner + committed to git) ──────────
@@ -137,8 +137,8 @@ model {
       description 'results/{date}/{slug}/{backend}.jsonl  +  results/aggregated/leaderboard.json + history.json. Committed to main after each run.'
     }
 
-    // ── SvelteKit site ───────────────────────────────────────────────────
-    site = container 'Site (site/)' {
+    // ── SvelteKit front ───────────────────────────────────────────────────
+    front = container 'Front (front/)' {
       technology 'SvelteKit · TypeScript'
       description 'Static leaderboard built from results/aggregated/. Deployed to GitHub Pages via main branch push.'
     }
@@ -147,16 +147,16 @@ model {
     pipeline -> terraform 'shells out terraform apply/destroy (TerraformInfrastructureAdapter)'
     terraform -> scaleway 'creates/destroys H100-1-80G instances via Scaleway provider'
     terraform -> h100_vllm 'provisions (cloud-init: CUDA + vLLM + model download)'
-    terraform -> h100_llamacpp 'provisions if GGUF exists (cloud-init: CUDA + llama.cpp + .gguf download)'
+    terraform -> l40s_llamacpp 'provisions if GGUF exists (cloud-init: CUDA + llama.cpp + .gguf download)'
     h100_vllm -> hf_hub 'downloads model weights (safetensors) at boot'
-    h100_llamacpp -> hf_hub 'downloads .gguf weights at boot'
+    l40s_llamacpp -> hf_hub 'downloads .gguf weights at boot'
     pipeline -> h100_vllm '⚠ run benchmarks — transport TBD (SSH / direct API call)'
-    pipeline -> h100_llamacpp '⚠ run benchmarks — transport TBD (SSH / direct API call)'
+    pipeline -> l40s_llamacpp '⚠ run benchmarks — transport TBD (SSH / direct API call)'
     h100_vllm -> results_store 'writes JSONL (via runner_port — path TBD)'
-    h100_llamacpp -> results_store 'writes JSONL (via runner_port — path TBD)'
+    l40s_llamacpp -> results_store 'writes JSONL (via runner_port — path TBD)'
     pipeline -> hf_hub 'discovers trending models (HF Hub API)'
     pipeline -> results_store 'reads existing results (dedup) + writes summary + aggregated'
-    site -> results_store 'reads leaderboard.json + history.json at build time'
+    front -> results_store 'reads leaderboard.json + history.json at build time'
   }
 
   // ── Cross-system flows ───────────────────────────────────────────────────
@@ -164,5 +164,5 @@ model {
   github.actions_runner -> github.repo 'git commit+push results/ after run'
   github.repo -> github.pages 'triggers GitHub Pages rebuild on push to main'
   visitor -> github.pages 'visits leaderboard'
-  github.pages -> llmgrill.site 'serves pre-built static site'
+  github.pages -> llmgrill.front 'serves pre-built static front'
 }

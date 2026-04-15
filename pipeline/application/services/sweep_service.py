@@ -1,4 +1,4 @@
-"""Orphan instance sweep (ADR 001e)."""
+"""Orphan instance sweep."""
 
 from __future__ import annotations
 

@@ -13,6 +13,7 @@ The nightly pipeline needs H100 GPU instances to run benchmarks. Requirements:
 - Provisioned on demand (no permanent infra).
 - Full SSH access (for `nvidia-smi`, GPU monitoring).
 - 2 backends (vLLM, llama.cpp) in parallel to minimize per-model wall time.
+- vLLM → H100-1-80G (full precision / large context). llama.cpp → L40S (sufficient for GGUF quantized inference, lower cost).
 
 ## Options Considered
 
@@ -24,13 +25,13 @@ The nightly pipeline needs H100 GPU instances to run benchmarks. Requirements:
 
 ## Decision
 
-**Option A**: 2 parallel H100 instances via Terraform + Scaleway.
+**Option A**: 1 H100-1-80G (vLLM) + 1 L40S (llama.cpp) via Terraform + Scaleway.
 
 ## Design
 
 **Structure**: `infra/` contains `main.tf`, `variables.tf`, `outputs.tf` and per-backend bash setup scripts (`setup-vllm.sh`, `setup-llamacpp.sh`).
 
-**Provisioning**: Terraform creates N `H100-1-80G` instances via `for_each` on the backends list. Each instance gets a cloud-init that installs CUDA, Python, `llm-grill`, the relevant backend, and downloads the model from HuggingFace.
+**Provisioning**: Terraform creates instances via `for_each` on the backends list, with instance type determined per backend: `H100-1-80G` for vLLM (full-precision inference), `L40S` for llama.cpp (GGUF quantized inference — 48 GB VRAM sufficient). Each instance gets a cloud-init that installs CUDA, Python, `llm-grill`, the relevant backend, and downloads the model from HuggingFace.
 
 **GGUF handling**: if a model has no GGUF variant on HuggingFace, `discover.py` excludes `llamacpp` → only 1 instance is created (vLLM only).
 

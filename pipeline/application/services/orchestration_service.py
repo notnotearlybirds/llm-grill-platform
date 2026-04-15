@@ -1,5 +1,5 @@
 """Main pipeline loop. Provisions per-model infra, runs backends concurrently,
-writes JSONL results and a summary classified per ADR 001e."""
+writes JSONL results and a run summary."""
 
 from __future__ import annotations
 

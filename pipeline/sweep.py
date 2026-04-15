@@ -1,20 +1,23 @@
-"""Composition root for the orphan sweep job (ADR 001e)."""
+"""Composition root for the orphan sweep job."""
 
 from __future__ import annotations
 
 import logging
-import sys
+import os
 
 from pipeline.adapters.scaleway.instance_sweeper_adapter import (
     ScalewayInstanceSweeperAdapter,
 )
 from pipeline.application.services.sweep_service import SweepService
 
+if __name__ == "__main__":
+    import sys
 
-def main() -> int:
     logging.basicConfig(level=logging.INFO)
+    name_prefix = os.getenv("SWEEP_NAME_PREFIX", "grill-")
+    max_age_hours = float(os.getenv("SWEEP_MAX_AGE_HOURS", "2.0"))
     adapter = ScalewayInstanceSweeperAdapter()
-    service = SweepService(adapter, name_prefix="grill-", max_age_hours=2.0)
+    service = SweepService(adapter, name_prefix=name_prefix, max_age_hours=max_age_hours)
     report = service.run()
     if report.orphans_found:
         logging.error(
@@ -25,8 +28,4 @@ def main() -> int:
         )
     else:
         logging.info("no orphans")
-    return report.exit_code
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(report.exit_code)
