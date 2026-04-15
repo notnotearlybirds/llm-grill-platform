@@ -1,7 +1,7 @@
 # ADR 001g: Security & Secrets Management
 
 **Date:** 2026-03-25
-**Status:** Proposed
+**Status:** Validated
 **Parent:** [ADR 001](001-automated-benchmark-site.md)
 
 ---

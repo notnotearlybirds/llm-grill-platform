@@ -1,7 +1,7 @@
 # ADR 001b: Pipeline — Model Discovery and Orchestration
 
 **Date:** 2026-03-25
-**Status:** Proposed
+**Status:** Validated
 **Parent:** [ADR 001](001-automated-benchmark-site.md)
 
 ---

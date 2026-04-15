@@ -1,7 +1,7 @@
 # ADR 001c: Storage — JSONL in Git as Source of Truth
 
 **Date:** 2026-03-25
-**Status:** Proposed
+**Status:** Validated
 **Parent:** [ADR 001](001-automated-benchmark-site.md)
 
 ---
