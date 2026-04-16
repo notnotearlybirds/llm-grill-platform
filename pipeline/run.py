@@ -3,9 +3,7 @@
 import asyncio
 import datetime as dt
 import subprocess
-import sys
 from pathlib import Path
-from typing import Any
 
 import typer
 import yaml
@@ -17,7 +15,8 @@ from pipeline.adapters.huggingface.model_discovery_adapter import (
 from pipeline.adapters.storage.filesystem_results_repository import (
     FilesystemResultsRepository,
 )
-from pipeline.application.domain.types import Backend, ModelCandidate
+from pipeline.application.domain.config import PipelineConfig
+from pipeline.application.domain.types import ModelCandidate
 from pipeline.application.ports.infrastructure_port import (
     BenchmarkRunnerPort,
     InfrastructurePort,
@@ -25,7 +24,6 @@ from pipeline.application.ports.infrastructure_port import (
 )
 from pipeline.application.services.aggregation_service import AggregationService
 from pipeline.application.services.discovery_service import (
-    DiscoveryFiltersConfig,
     DiscoveryResult,
     DiscoveryService,
 )
@@ -45,7 +43,7 @@ class _FixtureDiscovery:
     def __init__(self, fixtures_root: Path) -> None:
         self._root = fixtures_root
 
-    def discover(self, filters: Any) -> list[ModelCandidate]:
+    def discover(self, filters: object) -> list[ModelCandidate]:
         if not self._root.exists():
             return []
         seen: dict[str, ModelCandidate] = {}
@@ -114,8 +112,10 @@ def _git_sha() -> str:
         return "0000000"
 
 
-async def _amain(dry_run: bool) -> int:
-    cfg = yaml.safe_load((REPO_ROOT / "pipeline" / "config.yaml").read_text())
+async def _amain(dry_run: bool) -> None:
+    cfg = PipelineConfig.model_validate(
+        yaml.safe_load((REPO_ROOT / "pipeline" / "config.yaml").read_text())
+    )
     date = dt.date.today().isoformat()
     run_id = compute_run_id(date, _git_sha())
 
@@ -140,25 +140,23 @@ async def _amain(dry_run: bool) -> int:
         infra = TerraformInfrastructureAdapter(tf_dir=REPO_ROOT / "infra")
         runner = _LiveRunner()
 
-    filters = DiscoveryFiltersConfig(**cfg["discovery"])
-    backends: list[Backend] = list(cfg["backends"])
-
     discovery_service = DiscoveryService(discovery_port, repo)
-    plan = discovery_service.plan(filters, backends, date)
+    plan = discovery_service.plan(cfg.discovery, cfg.backends, date)
 
     if dry_run and not plan:
         plan = [
-            DiscoveryResult(model=c, pending_backends=c.eligible_backends(backends))
-            for c in _FixtureDiscovery(fixtures_root).discover(filters)
+            DiscoveryResult(model=c, pending_backends=c.eligible_backends(cfg.backends))
+            for c in _FixtureDiscovery(fixtures_root).discover(cfg.discovery)
         ]
 
-    logger.info("plan: {} model(s)", len(plan))
+    plan = plan[: cfg.load.max_models_per_day]
+    logger.info("plan: {} model(s) (limit {})", len(plan), cfg.load.max_models_per_day)
 
     orchestration = OrchestrationService(infra, runner, repo)
     await orchestration.run(
         plan,
         OrchestrationConfig(
-            per_backend_timeout_s=float(cfg["load"]["per_backend_timeout_s"]),
+            per_backend_timeout_s=cfg.load.per_backend_timeout_s,
             date=date,
             run_id=run_id,
         ),
@@ -166,7 +164,6 @@ async def _amain(dry_run: bool) -> int:
 
     AggregationService(repo).aggregate()
     logger.info("done run_id={}", run_id)
-    return 0
 
 
 @app.command()
@@ -175,7 +172,7 @@ def main(
         False, "--dry-run", help="Use fixtures, no provisioning."
     ),
 ) -> None:
-    sys.exit(asyncio.run(_amain(dry_run=dry_run)))
+    asyncio.run(_amain(dry_run=dry_run))
 
 
 if __name__ == "__main__":

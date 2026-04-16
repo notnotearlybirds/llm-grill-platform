@@ -10,6 +10,16 @@ ModelStatus = Literal[
 ]
 
 
+class DiscoveryFiltersConfig(BaseModel):
+    task: str
+    sort: str
+    max_size_gb: float
+    limit: int
+    include_patterns: list[str] = []
+    exclude_patterns: list[str] = []
+    exclude_models: list[str] = []
+
+
 class ModelCandidate(BaseModel, frozen=True):
     model_id: str
     size_gb: float

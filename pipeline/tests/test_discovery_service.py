@@ -1,11 +1,8 @@
 from pipeline.adapters.storage.filesystem_results_repository import (
     InMemoryResultsRepository,
 )
-from pipeline.application.domain.types import ModelCandidate
-from pipeline.application.services.discovery_service import (
-    DiscoveryFiltersConfig,
-    DiscoveryService,
-)
+from pipeline.application.domain.types import DiscoveryFiltersConfig, ModelCandidate
+from pipeline.application.services.discovery_service import DiscoveryService
 
 
 class _FakeDiscovery:

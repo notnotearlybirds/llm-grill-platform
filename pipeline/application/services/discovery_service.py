@@ -4,19 +4,13 @@ import fnmatch
 
 from pydantic import BaseModel
 
-from pipeline.application.domain.types import Backend, ModelCandidate
+from pipeline.application.domain.types import (
+    Backend,
+    ModelCandidate,
+    DiscoveryFiltersConfig,
+)
 from pipeline.application.ports.model_discovery_port import ModelDiscoveryPort
 from pipeline.application.ports.results_repository_port import ResultsRepositoryPort
-
-
-class DiscoveryFiltersConfig(BaseModel):
-    task: str
-    sort: str
-    max_size_gb: float
-    limit: int
-    include_patterns: list[str] = []
-    exclude_patterns: list[str] = []
-    exclude_models: list[str] = []
 
 
 class DiscoveryResult(BaseModel):

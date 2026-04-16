@@ -1,5 +1,7 @@
 """HuggingFace Hub discovery adapter."""
 
+import os
+
 from loguru import logger
 from huggingface_hub import HfApi, ModelInfo
 
@@ -10,9 +12,9 @@ from pipeline.application.ports.model_discovery_port import DiscoveryFilters
 class HuggingFaceModelDiscoveryAdapter:
     """Wraps ``huggingface_hub.HfApi`` to surface candidate models."""
 
-    def __init__(self, token: str | None = None) -> None:
+    def __init__(self) -> None:
         try:  # pragma: no cover - exercised only when lib is installed
-            self._api: HfApi | None = HfApi(token=token)
+            self._api: HfApi | None = HfApi(token=os.getenv("HF_TOKEN"))
         except Exception as exc:  # pragma: no cover
             logger.warning("huggingface_hub not available: {}", exc)
             self._api = None

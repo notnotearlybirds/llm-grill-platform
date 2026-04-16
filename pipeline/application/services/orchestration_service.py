@@ -61,44 +61,33 @@ class OrchestrationService:
                 model_id=model_id, status="infra_failed", error=str(exc)
             )
 
-        destroy_failed = False
-        try:
-            coros = [
-                self._run_backend(m, model_id, slug, config)
-                for m in machines
-                if m.backend in backends
-            ]
-            raw = await asyncio.gather(*coros, return_exceptions=True)
-            outcomes: list[BackendOutcome] = []
-            for m, res in zip([m for m in machines if m.backend in backends], raw):
-                if isinstance(res, Exception):
-                    outcomes.append(
-                        BackendOutcome(backend=m.backend, success=False, error=str(res))
-                    )
-                else:
-                    outcomes.append(BackendOutcome(backend=m.backend, success=True))
-        except Exception as exc:
-            logger.exception("unknown_error for {}", model_id)
-            try:
-                self._infra.destroy(model_id, config.run_id)
-            except Exception:
-                destroy_failed = True
-            status = "destroy_failed" if destroy_failed else "unknown_error"
-            return ModelRunResult(model_id=model_id, status=status, error=str(exc))
-        finally:
-            try:
-                self._infra.destroy(model_id, config.run_id)
-            except Exception as exc:
-                logger.exception("destroy_failed for {}", model_id)
-                destroy_failed = True
-                destroy_error = str(exc)
+        eligible = [m for m in machines if m.backend in backends]
+        raw = await asyncio.gather(
+            *[self._run_backend(m, model_id, slug, config) for m in eligible],
+            return_exceptions=True,
+        )
+        outcomes: list[BackendOutcome] = [
+            BackendOutcome(
+                backend=m.backend,
+                success=not isinstance(res, Exception),
+                error=str(res) if isinstance(res, Exception) else None,
+            )
+            for m, res in zip(eligible, raw)
+        ]
 
-        if destroy_failed:
+        destroy_error: str | None = None
+        try:
+            self._infra.destroy(model_id, config.run_id)
+        except Exception as exc:
+            logger.exception("destroy_failed for {}", model_id)
+            destroy_error = str(exc)
+
+        if destroy_error is not None:
             return ModelRunResult(
                 model_id=model_id,
                 status="destroy_failed",
                 backends=outcomes,
-                error=locals().get("destroy_error"),
+                error=destroy_error,
             )
         succeeded = sum(1 for o in outcomes if o.success)
         if succeeded == len(outcomes):

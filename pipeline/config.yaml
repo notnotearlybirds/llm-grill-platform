@@ -8,6 +8,6 @@ discovery:
   exclude_models: []
 backends: [vllm, llamacpp]
 load:
-  concurrency: 10
+  max_models_per_day: 5
   iterations_per_conversation: 5
   per_backend_timeout_s: 3600

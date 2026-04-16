@@ -7,7 +7,6 @@ installed, ``llm_grill.metrics.aggregate()`` is invoked as a sanity check.
 """
 
 from collections import defaultdict
-from dataclasses import dataclass
 from enum import StrEnum
 from statistics import mean, quantiles
 from typing import Any
@@ -41,9 +40,9 @@ class RunMetrics(BaseModel):
     n_requests: int
 
 
-@dataclass
 class AggregationService:
-    results: ResultsRepositoryPort
+    def __init__(self, results: ResultsRepositoryPort) -> None:
+        self.results = results
 
     def aggregate(self, extra_runs: list[ExtraRun] | None = None) -> None:
         """Read all runs from the repository (+ optional extra runs for dry-run)

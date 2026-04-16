@@ -6,7 +6,7 @@ from typing import Any
 
 
 class FilesystemResultsRepository:
-    """Reads/writes the ``results/`` layout on disk (ADR 001c)."""
+    """Reads/writes the ``results/`` layout on disk."""
 
     def __init__(self, root: Path, read_roots: list[Path] | None = None) -> None:
         self._root = Path(root)

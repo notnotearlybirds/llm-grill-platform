@@ -11,7 +11,6 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 if __name__ == "__main__":
     import argparse
-    import sys
 
     parser = argparse.ArgumentParser(prog="pipeline.aggregate")
     parser.add_argument(
@@ -28,4 +27,3 @@ if __name__ == "__main__":
         read_roots=[fixtures_root] if args.include_fixtures else None,
     )
     AggregationService(repo).aggregate()
-    sys.exit(0)
