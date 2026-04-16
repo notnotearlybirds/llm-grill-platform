@@ -5,15 +5,12 @@ is idempotent. In tests and dry-run the composition root substitutes a
 lighter implementation (see ``pipeline.run``).
 """
 
-from __future__ import annotations
-
-import logging
 import subprocess
 from pathlib import Path
 
-from pipeline.application.ports.infrastructure_port import ProvisionedMachine
+from loguru import logger
 
-logger = logging.getLogger(__name__)
+from pipeline.application.ports.infrastructure_port import ProvisionedMachine
 
 
 class TerraformInfrastructureAdapter:
@@ -35,9 +32,6 @@ class TerraformInfrastructureAdapter:
                 f"-var=run_id={run_id}",
             ]
         )
-        # The terraform module writes outputs that list (backend, host, instance_id).
-        # Parsing those outputs is the integration-layer concern; return empty list
-        # here so unit-tests can exercise logic without parsing JSON.
         return []  # pragma: no cover - exercised in integration tests only
 
     def destroy(self, model_id: str, run_id: str) -> None:
@@ -53,5 +47,5 @@ class TerraformInfrastructureAdapter:
     def _run(
         self, cmd: list[str]
     ) -> None:  # pragma: no cover - thin subprocess wrapper
-        logger.info("terraform: %s", " ".join(cmd))
+        logger.info("terraform: {}", " ".join(cmd))
         subprocess.run(cmd, cwd=self._tf_dir, check=True)

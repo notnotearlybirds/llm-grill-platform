@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from pipeline.adapters.storage.filesystem_results_repository import (
     InMemoryResultsRepository,
 )
@@ -35,10 +33,18 @@ def _filters(**overrides) -> DiscoveryFiltersConfig:
 def test_plan_given_matching_candidates_when_filtered_then_returns_eligible():
     # Given
     models = [
-        ModelCandidate("meta-llama/Llama-3.1-8B-Instruct", 15.0, True),
-        ModelCandidate("some-org/pretraining-raw", 10.0, False),  # no instruct
-        ModelCandidate("too-big/Big-Instruct", 120.0, True),  # over size
-        ModelCandidate("excluded/Excluded-Instruct", 5.0, True),
+        ModelCandidate(
+            model_id="meta-llama/Llama-3.1-8B-Instruct", size_gb=15.0, has_gguf=True
+        ),
+        ModelCandidate(
+            model_id="some-org/pretraining-raw", size_gb=10.0, has_gguf=False
+        ),  # no instruct
+        ModelCandidate(
+            model_id="too-big/Big-Instruct", size_gb=120.0, has_gguf=True
+        ),  # over size
+        ModelCandidate(
+            model_id="excluded/Excluded-Instruct", size_gb=5.0, has_gguf=True
+        ),
     ]
     repo = InMemoryResultsRepository()
     service = DiscoveryService(_FakeDiscovery(models), repo)
@@ -57,7 +63,9 @@ def test_plan_given_matching_candidates_when_filtered_then_returns_eligible():
 
 def test_plan_given_model_without_gguf_when_planned_then_drops_llamacpp():
     # Given
-    models = [ModelCandidate("org/Model-Instruct", 5.0, has_gguf=False)]
+    models = [
+        ModelCandidate(model_id="org/Model-Instruct", size_gb=5.0, has_gguf=False)
+    ]
     service = DiscoveryService(_FakeDiscovery(models), InMemoryResultsRepository())
 
     # When
@@ -69,7 +77,7 @@ def test_plan_given_model_without_gguf_when_planned_then_drops_llamacpp():
 
 def test_plan_given_already_benchmarked_pair_when_planned_then_skips_it():
     # Given
-    models = [ModelCandidate("org/Model-Instruct", 5.0, has_gguf=True)]
+    models = [ModelCandidate(model_id="org/Model-Instruct", size_gb=5.0, has_gguf=True)]
     repo = InMemoryResultsRepository()
     repo.write_jsonl("2026-04-14", "org--Model-Instruct", "vllm", [{"success": True}])
     service = DiscoveryService(_FakeDiscovery(models), repo)
@@ -83,7 +91,7 @@ def test_plan_given_already_benchmarked_pair_when_planned_then_skips_it():
 
 def test_plan_given_all_backends_benchmarked_when_planned_then_drops_model_entirely():
     # Given
-    models = [ModelCandidate("org/Model-Instruct", 5.0, has_gguf=True)]
+    models = [ModelCandidate(model_id="org/Model-Instruct", size_gb=5.0, has_gguf=True)]
     repo = InMemoryResultsRepository()
     repo.write_jsonl("2026-04-14", "org--Model-Instruct", "vllm", [])
     repo.write_jsonl("2026-04-14", "org--Model-Instruct", "llamacpp", [])

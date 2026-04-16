@@ -1,30 +1,22 @@
 """Scaleway API adapter that lists and terminates orphan benchmark instances."""
 
-from __future__ import annotations
-
 import datetime as dt
-import logging
-from typing import Any
 
+from loguru import logger
 import scaleway
 from scaleway.instance.v1 import InstanceV1API
 
-logger = logging.getLogger(__name__)
-
 
 class ScalewayInstanceSweeperAdapter:
-    """Uses the official ``scaleway`` SDK. The concrete client is injectable
-    so the class is testable without credentials or network."""
+    """Uses the official ``scaleway`` SDK."""
 
-    def __init__(self, instance_api: InstanceV1API | None = None, now: dt.datetime | None = None) -> None:
-        if instance_api is None:
-            try:  # pragma: no cover - exercised only when lib is installed
-                client = scaleway.Client.from_config_file_and_env()
-                instance_api = InstanceV1API(client)
-            except Exception as exc:  # pragma: no cover
-                logger.warning("scaleway SDK not available: %s", exc)
-                instance_api = None
-        self._api = instance_api
+    def __init__(self, now: dt.datetime | None = None) -> None:
+        try:  # pragma: no cover - exercised only when credentials are available
+            client = scaleway.Client.from_config_file_and_env()
+            self._api: InstanceV1API | None = InstanceV1API(client)
+        except Exception as exc:  # pragma: no cover
+            logger.warning("scaleway SDK not available: {}", exc)
+            self._api = None
         self._now = now or (lambda: dt.datetime.now(dt.timezone.utc))
 
     def list_orphans(self, name_prefix: str, max_age_hours: float) -> list[str]:
@@ -32,15 +24,14 @@ class ScalewayInstanceSweeperAdapter:
             return []
         cutoff = self._now() - dt.timedelta(hours=max_age_hours)
         servers = self._api.list_servers_all()
-        orphans: list[str] = []
-        for s in servers:
-            name = s.name or ""
-            created = s.creation_date or None
-            if not name.startswith(name_prefix):
-                continue
-            if created is None or created <= cutoff:
-                orphans.append(s.id or "")
-        return [o for o in orphans if o]
+        return [
+            s.id
+            for s in servers
+            if (s.name or "").startswith(name_prefix)
+            and s.creation_date is not None
+            and s.creation_date <= cutoff
+            and s.id
+        ]
 
     def destroy(self, instance_id: str) -> None:
         if self._api is None:

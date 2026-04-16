@@ -1,18 +1,13 @@
 """Main pipeline loop. Provisions per-model infra, runs backends concurrently,
 writes JSONL results and a run summary."""
 
-from __future__ import annotations
-
 import asyncio
-import logging
 from collections import Counter
-from dataclasses import dataclass
-from typing import Any
 
-from pipeline.application.domain.types import (
-    BackendOutcome,
-    ModelRunResult,
-)
+from loguru import logger
+from pydantic import BaseModel
+
+from pipeline.application.domain.types import BackendOutcome, ModelRunResult
 from pipeline.application.ports.infrastructure_port import (
     BenchmarkRunnerPort,
     InfrastructurePort,
@@ -21,11 +16,8 @@ from pipeline.application.ports.infrastructure_port import (
 from pipeline.application.ports.results_repository_port import ResultsRepositoryPort
 from pipeline.application.services.discovery_service import DiscoveryResult
 
-logger = logging.getLogger(__name__)
 
-
-@dataclass
-class OrchestrationConfig:
+class OrchestrationConfig(BaseModel):
     per_backend_timeout_s: float
     date: str
     run_id: str
@@ -64,7 +56,7 @@ class OrchestrationService:
         try:
             machines = self._infra.provision(model_id, list(backends), config.run_id)
         except Exception as exc:
-            logger.exception("infra_failed for %s", model_id)
+            logger.exception("infra_failed for {}", model_id)
             return ModelRunResult(
                 model_id=model_id, status="infra_failed", error=str(exc)
             )
@@ -86,7 +78,7 @@ class OrchestrationService:
                 else:
                     outcomes.append(BackendOutcome(backend=m.backend, success=True))
         except Exception as exc:
-            logger.exception("unknown_error for %s", model_id)
+            logger.exception("unknown_error for {}", model_id)
             try:
                 self._infra.destroy(model_id, config.run_id)
             except Exception:
@@ -97,7 +89,7 @@ class OrchestrationService:
             try:
                 self._infra.destroy(model_id, config.run_id)
             except Exception as exc:
-                logger.exception("destroy_failed for %s", model_id)
+                logger.exception("destroy_failed for {}", model_id)
                 destroy_failed = True
                 destroy_error = str(exc)
 
@@ -136,7 +128,7 @@ class OrchestrationService:
         config: OrchestrationConfig,
     ) -> None:
         counts: Counter[str] = Counter(o.status for o in outcomes)
-        summary: dict[str, Any] = {
+        summary = {
             "run_id": config.run_id,
             "date": config.date,
             "counts": {

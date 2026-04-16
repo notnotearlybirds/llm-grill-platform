@@ -1,8 +1,5 @@
 """Composition root for the aggregation step."""
 
-from __future__ import annotations
-
-import logging
 from pathlib import Path
 
 from pipeline.adapters.storage.filesystem_results_repository import (
@@ -11,7 +8,6 @@ from pipeline.adapters.storage.filesystem_results_repository import (
 from pipeline.application.services.aggregation_service import AggregationService
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-
 
 if __name__ == "__main__":
     import argparse
@@ -24,7 +20,6 @@ if __name__ == "__main__":
         help="Also read results/fixtures/** (used in dry-run and tests).",
     )
     args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO)
 
     results_root = REPO_ROOT / "results"
     fixtures_root = results_root / "fixtures"

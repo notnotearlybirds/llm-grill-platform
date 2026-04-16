@@ -1,28 +1,25 @@
 """Discovery orchestration: filters candidates and drops already-benchmarked pairs."""
 
-from __future__ import annotations
-
 import fnmatch
-from dataclasses import dataclass
+
+from pydantic import BaseModel
 
 from pipeline.application.domain.types import Backend, ModelCandidate
 from pipeline.application.ports.model_discovery_port import ModelDiscoveryPort
 from pipeline.application.ports.results_repository_port import ResultsRepositoryPort
 
 
-@dataclass
-class DiscoveryFiltersConfig:
+class DiscoveryFiltersConfig(BaseModel):
     task: str
     sort: str
     max_size_gb: float
     limit: int
-    include_patterns: list[str]
-    exclude_patterns: list[str]
-    exclude_models: list[str]
+    include_patterns: list[str] = []
+    exclude_patterns: list[str] = []
+    exclude_models: list[str] = []
 
 
-@dataclass
-class DiscoveryResult:
+class DiscoveryResult(BaseModel):
     model: ModelCandidate
     pending_backends: list[Backend]
 

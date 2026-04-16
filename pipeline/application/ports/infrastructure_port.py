@@ -1,13 +1,11 @@
 """Port for provisioning/destroying benchmark infrastructure."""
 
-from __future__ import annotations
-
-from dataclasses import dataclass
 from typing import Protocol
 
+from pydantic import BaseModel
 
-@dataclass(frozen=True)
-class ProvisionedMachine:
+
+class ProvisionedMachine(BaseModel, frozen=True):
     backend: str
     host: str
     instance_id: str

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from pipeline.application.services.sweep_service import SweepService
 
 

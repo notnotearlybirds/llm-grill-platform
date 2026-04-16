@@ -1,7 +1,5 @@
 """Port describing HuggingFace-style model discovery."""
 
-from __future__ import annotations
-
 from typing import Protocol
 
 from pipeline.application.domain.types import ModelCandidate

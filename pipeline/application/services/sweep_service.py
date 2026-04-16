@@ -1,14 +1,11 @@
 """Orphan instance sweep."""
 
-from __future__ import annotations
-
-from dataclasses import dataclass
+from pydantic import BaseModel
 
 from pipeline.application.ports.infrastructure_port import InstanceSweeperPort
 
 
-@dataclass
-class SweepReport:
+class SweepReport(BaseModel):
     orphans_found: list[str]
     destroyed: list[str]
     failed: list[tuple[str, str]]

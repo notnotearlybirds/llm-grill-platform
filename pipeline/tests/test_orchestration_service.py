@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 
 
@@ -59,7 +57,7 @@ class _FakeRunner:
 
 
 def _plan() -> list[DiscoveryResult]:
-    c = ModelCandidate("org/Model-Instruct", 5.0, True)
+    c = ModelCandidate(model_id="org/Model-Instruct", size_gb=5.0, has_gguf=True)
     return [DiscoveryResult(model=c, pending_backends=["vllm", "llamacpp"])]
 
 
