@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from src.db import AsyncSessionLocal, engine
 from src.models import Base
 from src.orchestrator import polling_loop
+from src.routers.leaderboard import router as leaderboard_router
 from src.routers.nodes import router as nodes_router
 from src.routers.results import router as results_router
 from src.routers.runs import router as runs_router
@@ -33,6 +34,7 @@ app = FastAPI(title="llm-grill orchestrator", lifespan=lifespan)
 app.include_router(runs_router)
 app.include_router(nodes_router)
 app.include_router(results_router)
+app.include_router(leaderboard_router)
 
 _RUNNER_PATH = Path(__file__).resolve().parents[3] / "runner" / "runner.sh"
 
