@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, Integer, String, func
+from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -13,13 +13,14 @@ class Base(DeclarativeBase):
 
 class RunStatus(str, enum.Enum):
     queued = "queued"
+    provisioning = "provisioning"
     running = "running"
     done = "done"
     failed = "failed"
 
 
 class NodeStatus(str, enum.Enum):
-    idle = "idle"
+    provisioning = "provisioning"
     busy = "busy"
     down = "down"
 
@@ -41,8 +42,9 @@ class Node(Base):
     gpu_type: Mapped[GpuType] = mapped_column(Enum(GpuType), nullable=False)
     gpu_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     status: Mapped[NodeStatus] = mapped_column(
-        Enum(NodeStatus), nullable=False, default=NodeStatus.idle
+        Enum(NodeStatus), nullable=False, default=NodeStatus.provisioning
     )
+    ip_address: Mapped[str | None] = mapped_column(String, nullable=True)
     current_run_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), nullable=True
     )
@@ -63,6 +65,8 @@ class Run(Base):
     gpu_type_required: Mapped[GpuType] = mapped_column(Enum(GpuType), nullable=False)
     gpu_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     scenario_path: Mapped[str] = mapped_column(String, nullable=False)
+    results_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -71,4 +75,36 @@ class Run(Base):
     )
     ended_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+
+
+class Result(Base):
+    __tablename__ = "results"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("runs.id"), unique=True, nullable=False
+    )
+    model: Mapped[str] = mapped_column(String, nullable=False)
+    engine: Mapped[str] = mapped_column(String, nullable=False)
+    gpu_type: Mapped[GpuType] = mapped_column(Enum(GpuType), nullable=False)
+    scenario: Mapped[str] = mapped_column(String, nullable=False)
+    total_requests: Mapped[int] = mapped_column(Integer, nullable=False)
+    success_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    error_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    success_rate: Mapped[float] = mapped_column(Float, nullable=False)
+    ttft_mean_s: Mapped[float] = mapped_column(Float, nullable=False)
+    ttft_median_s: Mapped[float] = mapped_column(Float, nullable=False)
+    ttft_p95_s: Mapped[float] = mapped_column(Float, nullable=False)
+    tpot_mean_s: Mapped[float] = mapped_column(Float, nullable=False)
+    e2e_mean_s: Mapped[float] = mapped_column(Float, nullable=False)
+    e2e_p95_s: Mapped[float] = mapped_column(Float, nullable=False)
+    tokens_per_second_mean: Mapped[float] = mapped_column(Float, nullable=False)
+    total_tokens_per_second: Mapped[float] = mapped_column(Float, nullable=False)
+    requests_per_second: Mapped[float] = mapped_column(Float, nullable=False)
+    total_duration_s: Mapped[float] = mapped_column(Float, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )

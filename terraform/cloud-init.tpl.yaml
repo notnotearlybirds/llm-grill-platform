@@ -1,0 +1,41 @@
+#cloud-config
+
+write_files:
+  - path: /etc/llmgrill/env
+    permissions: "0600"
+    content: |
+      RUN_ID=${run_id}
+      ORCHESTRATOR_URL=${orchestrator_url}
+      HF_TOKEN=${hf_token}
+
+  - path: /etc/systemd/system/llmgrill-runner.service
+    content: |
+      [Unit]
+      Description=llm-grill benchmark runner
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=oneshot
+      EnvironmentFile=/etc/llmgrill/env
+      ExecStart=/opt/runner/runner.sh
+      StandardOutput=journal
+      StandardError=journal
+
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  # NVIDIA persistence
+  - nvidia-smi -pm 1
+
+  # Install jq
+  - apt-get install -y jq
+
+  # Fetch runner script from orchestrator
+  - mkdir -p /opt/runner
+  - curl -fsSL ${orchestrator_url}/runner.sh -o /opt/runner/runner.sh
+  - chmod +x /opt/runner/runner.sh
+
+  # Start runner service
+  - systemctl enable --now llmgrill-runner.service

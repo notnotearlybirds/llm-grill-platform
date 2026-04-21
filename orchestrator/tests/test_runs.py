@@ -9,9 +9,34 @@ import uuid
 
 import pytest
 
-from src.models import GpuType, Run, RunStatus
-from src.orchestrator import poll_once
+from src.models import Engine, GpuType, Result, Run, RunStatus
+from src.orchestrator import handle_queued_run
 from src.routing import select_gpu
+
+
+def _make_result(run_id: uuid.UUID) -> Result:
+    return Result(
+        id=uuid.uuid4(),
+        run_id=run_id,
+        model="meta-llama/Llama-3-8B",
+        engine="vllm",
+        gpu_type=GpuType.L40S,
+        scenario="scenarios/basic.yaml",
+        total_requests=10,
+        success_count=10,
+        error_count=0,
+        success_rate=1.0,
+        ttft_mean_s=0.1,
+        ttft_median_s=0.1,
+        ttft_p95_s=0.2,
+        tpot_mean_s=0.03,
+        e2e_mean_s=0.4,
+        e2e_p95_s=0.6,
+        tokens_per_second_mean=40.0,
+        total_tokens_per_second=100.0,
+        requests_per_second=2.5,
+        total_duration_s=4.0,
+    )
 
 SMALL_MODEL_PAYLOAD = {
     "model": "meta-llama/Llama-3-8B",
@@ -155,21 +180,27 @@ class TestRunListing:
         assert len((await client.get("/runs?status=running")).json()) == 0
 
 
-class TestOrchestratorPolling:
-    """Tests for the GPU node assignment polling loop."""
+class TestOrchestratorProvisioning:
+    """Tests for ephemeral node provisioning via handle_queued_run."""
 
-    async def test_should_assign_run_when_compatible_node_available(
-        self, session_factory, idle_h100, queued_run
+    async def test_should_provision_node_and_mark_run_running(
+        self, session_factory, queued_run, mocker
     ):
         """
-        Should transition run to running when a matching idle node exists.
+        Should provision a node via Terraform and transition run to running.
 
-        Given: A queued H100 run and one idle H100 node in the DB
-        When: poll_once is called
-        Then: Run status becomes running and started_at is set
+        Given: A queued H100 run and a stubbed provision_node returning fake ids
+        When: handle_queued_run is called
+        Then: Run is running, node is busy, started_at is set
         """
-        # When
-        await poll_once(session_factory)
+        # Given
+        mocker.patch(
+            "src.orchestrator.provision_node",
+            return_value=("scw-instance-abc", "1.2.3.4"),
+        )
+        async with session_factory() as session:
+            run = await session.get(Run, queued_run)
+            await handle_queued_run(session, run)
 
         # Then
         async with session_factory() as session:
@@ -177,23 +208,126 @@ class TestOrchestratorPolling:
         assert run.status == RunStatus.running
         assert run.started_at is not None
 
-    async def test_should_leave_run_queued_when_no_compatible_node(
-        self, session_factory, idle_l40s, queued_run
+    async def test_should_mark_run_failed_when_provision_raises(
+        self, session_factory, queued_run, mocker
     ):
         """
-        Should not assign an H100 run when only an L40S node is available.
+        Should mark run as failed when Terraform provisioning fails.
 
-        Given: A queued H100 run and one idle L40S node in the DB
-        When: poll_once is called
-        Then: Run status remains queued
+        Given: provision_node raises an exception
+        When: handle_queued_run is called
+        Then: Run status is failed, ended_at is set
         """
-        # When
-        await poll_once(session_factory)
+        # Given
+        mocker.patch(
+            "src.orchestrator.provision_node",
+            side_effect=RuntimeError("terraform apply failed"),
+        )
+        async with session_factory() as session:
+            run = await session.get(Run, queued_run)
+            await handle_queued_run(session, run)
 
         # Then
         async with session_factory() as session:
             run = await session.get(Run, queued_run)
-        assert run.status == RunStatus.queued
+        assert run.status == RunStatus.failed
+        assert run.ended_at is not None
+
+
+class TestRunCompletion:
+    """Tests for POST /runs/{id}/complete and /fail endpoints."""
+
+    async def _create_running_run(self, client, session_factory) -> str:
+        resp = await client.post("/runs", json=SMALL_MODEL_PAYLOAD)
+        run_id = resp.json()["id"]
+        async with session_factory() as session:
+            run = await session.get(Run, uuid.UUID(run_id))
+            run.status = RunStatus.running
+            await session.commit()
+        return run_id
+
+    async def test_should_mark_run_done_on_complete(
+        self, client, session_factory, mocker
+    ):
+        """
+        Should set status=done and store results when runner reports completion.
+
+        Given: A running run
+        When: POST /runs/{id}/complete is called with JSONL results
+        Then: Run status is done, results_jsonl is stored, ended_at is set
+        """
+        # Given
+        mocker.patch("src.routers.runs.release_node")
+        mocker.patch(
+            "src.routers.runs.upload_results", return_value="runs/x/results.jsonl"
+        )
+        run_id = await self._create_running_run(client, session_factory)
+        mocker.patch("src.routers.runs.aggregate", return_value=_make_result(uuid.UUID(run_id)))
+
+        # When
+        resp = await client.post(
+            f"/runs/{run_id}/complete",
+            json={"results_jsonl": '{"tokens_per_second": 42}\n'},
+        )
+
+        # Then
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "done"
+        assert data["results_url"] is not None
+        assert data["ended_at"] is not None
+
+    async def test_should_mark_run_failed_on_fail(
+        self, client, session_factory, mocker
+    ):
+        """
+        Should set status=failed and store error when runner reports failure.
+
+        Given: A running run
+        When: POST /runs/{id}/fail is called with an error message
+        Then: Run status is failed, error_message is stored
+        """
+        # Given
+        mocker.patch("src.routers.runs.release_node")
+        run_id = await self._create_running_run(client, session_factory)
+
+        # When
+        resp = await client.post(
+            f"/runs/{run_id}/fail",
+            json={"error_message": "OOM during warmup"},
+        )
+
+        # Then
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "failed"
+        assert data["error_message"] == "OOM during warmup"
+
+    async def test_should_reject_complete_on_non_running_run(self, client, mocker):
+        """
+        Should return 409 when trying to complete a run that is not running.
+
+        Given: A queued run
+        When: POST /runs/{id}/complete is called
+        Then: 409 Conflict
+        """
+        # Given
+        mocker.patch("src.routers.runs.release_node")
+        mocker.patch(
+            "src.routers.runs.upload_results", return_value="runs/x/results.jsonl"
+        )
+        resp = await client.post("/runs", json=SMALL_MODEL_PAYLOAD)
+        run_id = resp.json()["id"]
+        mocker.patch("src.routers.runs.aggregate", return_value=_make_result(uuid.UUID(run_id)))
+
+        # When
+        resp = await client.post(
+            f"/runs/{run_id}/complete",
+            json={"results_jsonl": "{}"},
+        )
+
+        # Then
+        assert resp.status_code == 409
 
 
 class TestGpuRouting:

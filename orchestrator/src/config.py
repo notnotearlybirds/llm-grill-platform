@@ -7,5 +7,16 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost/llmgrill"
     poll_interval_seconds: int = 10
 
+    # Terraform / Scaleway
+    orchestrator_url: str = "http://localhost:8000"
+    hf_token: str = ""
+    gpu_zone: str = "fr-par-2"
+
+    # Scaleway Object Storage
+    scw_bucket: str = "llmgrill-results"
+    scw_region: str = "fr-par"
+    scw_access_key: str = ""
+    scw_secret_key: str = ""
+
 
 settings = Settings()
