@@ -23,9 +23,9 @@ from huggingface_hub import list_models
 
 from src.config import settings
 from src.db import AsyncSessionLocal
+from src.infra.watcher import _already_exists, _detect_engine, _extract_size_b
 from src.models import Run
-from src.routing import select_gpu
-from src.watcher import _already_exists, _detect_engine, _extract_size_b
+from src.services.run_service import RunService
 
 
 def _passes_bootstrap_filter(model_info, min_downloads: int) -> bool:
@@ -38,14 +38,14 @@ def _passes_bootstrap_filter(model_info, min_downloads: int) -> bool:
 async def run(min_downloads: int, dry_run: bool, limit: int | None) -> None:
     num_parameters = f"min:{settings.hf_min_size_b}B,max:{settings.hf_max_size_b}B"
 
-    print(f"\n{'='*65}")
+    print(f"\n{'=' * 65}")
     print(f"  HuggingFace bootstrap — {'DRY RUN ' if dry_run else ''}seed DB")
     print(f"  Size: [{settings.hf_min_size_b}B, {settings.hf_max_size_b}B]")
     print(f"  Filter: org in whitelist OR downloads >= {min_downloads:,}")
     print(f"  Orgs: {', '.join(settings.hf_watched_orgs) or '(all)'}")
     if limit:
         print(f"  Limit: {limit} models max")
-    print(f"{'='*65}\n")
+    print(f"{'=' * 65}\n")
 
     seen = 0
     skipped_filter = 0
@@ -90,7 +90,7 @@ async def run(min_downloads: int, dry_run: bool, limit: int | None) -> None:
                     model=model_info.id,
                     model_size_b=size_b,
                     engine=engine,
-                    gpu_type_required=select_gpu(size_b),
+                    gpu_type_required=RunService.select_gpu(size_b),
                     scenario_path=settings.hf_default_scenario,
                 )
                 session.add(run_obj)
@@ -98,9 +98,11 @@ async def run(min_downloads: int, dry_run: bool, limit: int | None) -> None:
             inserted += 1
 
     action = "would insert" if dry_run else "inserted"
-    print(f"\n{'='*65}")
-    print(f"  Seen: {seen} | {action}: {inserted} | skip filter: {skipped_filter} | skip size: {skipped_size} | skip dedup: {skipped_dedup}")
-    print(f"{'='*65}\n")
+    print(f"\n{'=' * 65}")
+    print(
+        f"  Seen: {seen} | {action}: {inserted} | skip filter: {skipped_filter} | skip size: {skipped_size} | skip dedup: {skipped_dedup}"
+    )
+    print(f"{'=' * 65}\n")
 
 
 def main() -> None:

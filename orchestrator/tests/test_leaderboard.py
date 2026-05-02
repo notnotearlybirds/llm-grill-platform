@@ -65,7 +65,6 @@ async def _insert(session_factory, result: Result) -> None:
 
 
 class TestLeaderboard:
-
     async def test_should_return_empty_list_when_no_results(self, client):
         """
         Should return an empty list when no benchmark results exist.
@@ -96,7 +95,9 @@ class TestLeaderboard:
         run_id_1 = await create_run()
         run_id_2 = await create_run()
         now = datetime.now(timezone.utc)
-        await _insert(session_factory, _make_result(run_id_1, created_at=now - timedelta(hours=2)))
+        await _insert(
+            session_factory, _make_result(run_id_1, created_at=now - timedelta(hours=2))
+        )
         await _insert(session_factory, _make_result(run_id_2, created_at=now))
 
         # When
@@ -121,16 +122,22 @@ class TestLeaderboard:
         run_id_old = await create_run()
         run_id_new = await create_run()
         now = datetime.now(timezone.utc)
-        await _insert(session_factory, _make_result(
-            run_id_old,
-            total_tokens_per_second=999.0,
-            created_at=now - timedelta(hours=5),
-        ))
-        await _insert(session_factory, _make_result(
-            run_id_new,
-            total_tokens_per_second=50.0,
-            created_at=now,
-        ))
+        await _insert(
+            session_factory,
+            _make_result(
+                run_id_old,
+                total_tokens_per_second=999.0,
+                created_at=now - timedelta(hours=5),
+            ),
+        )
+        await _insert(
+            session_factory,
+            _make_result(
+                run_id_new,
+                total_tokens_per_second=50.0,
+                created_at=now,
+            ),
+        )
 
         # When
         resp = await client.get("/leaderboard")
@@ -155,16 +162,22 @@ class TestLeaderboard:
         create_run = _make_run(session_factory)
         run_id_fast = await create_run(model="mistralai/Mistral-7B-v0.1")
         run_id_slow = await create_run(model="meta-llama/Llama-3-8B")
-        await _insert(session_factory, _make_result(
-            run_id_fast,
-            model="mistralai/Mistral-7B-v0.1",
-            total_tokens_per_second=200.0,
-        ))
-        await _insert(session_factory, _make_result(
-            run_id_slow,
-            model="meta-llama/Llama-3-8B",
-            total_tokens_per_second=80.0,
-        ))
+        await _insert(
+            session_factory,
+            _make_result(
+                run_id_fast,
+                model="mistralai/Mistral-7B-v0.1",
+                total_tokens_per_second=200.0,
+            ),
+        )
+        await _insert(
+            session_factory,
+            _make_result(
+                run_id_slow,
+                model="meta-llama/Llama-3-8B",
+                total_tokens_per_second=80.0,
+            ),
+        )
 
         # When
         resp = await client.get("/leaderboard")
@@ -176,9 +189,7 @@ class TestLeaderboard:
         assert data[0]["model"] == "mistralai/Mistral-7B-v0.1"
         assert data[1]["model"] == "meta-llama/Llama-3-8B"
 
-    async def test_should_group_separately_by_gpu_type(
-        self, client, session_factory
-    ):
+    async def test_should_group_separately_by_gpu_type(self, client, session_factory):
         """
         Should return one entry per GPU type for the same model+engine.
 
@@ -190,8 +201,18 @@ class TestLeaderboard:
         create_run = _make_run(session_factory)
         run_l40s = await create_run(gpu_type_required=GpuType.L40S)
         run_h100 = await create_run(gpu_type_required=GpuType.H100)
-        await _insert(session_factory, _make_result(run_l40s, gpu_type=GpuType.L40S, total_tokens_per_second=120.0))
-        await _insert(session_factory, _make_result(run_h100, gpu_type=GpuType.H100, total_tokens_per_second=180.0))
+        await _insert(
+            session_factory,
+            _make_result(
+                run_l40s, gpu_type=GpuType.L40S, total_tokens_per_second=120.0
+            ),
+        )
+        await _insert(
+            session_factory,
+            _make_result(
+                run_h100, gpu_type=GpuType.H100, total_tokens_per_second=180.0
+            ),
+        )
 
         # When
         resp = await client.get("/leaderboard")

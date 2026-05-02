@@ -133,7 +133,7 @@ class TestResultsEndpoints:
         run_id = await _create_run(session_factory)
         await _insert_result(session_factory, run_id)
         mocker.patch(
-            "src.routers.results.presigned_url",
+            "src.services.result_service.presigned_url",
             return_value="https://s3.fr-par.scw.cloud/llmgrill-results/runs/fake/results.jsonl",
         )
 
@@ -177,14 +177,14 @@ class TestRunCompleteIntegration:
         Then: run.results_url is set, a Result row exists
         """
         # Given
-        mocker.patch("src.routers.runs.release_node")
+        mocker.patch("src.controllers.run_controller.release_node")
         mocker.patch(
-            "src.routers.runs.upload_results",
+            "src.services.run_service.upload_results",
             return_value="runs/fake-id/results.jsonl",
         )
         run_id = await self._create_running_run(client, session_factory)
         fake_result = _make_result(uuid.UUID(run_id))
-        mocker.patch("src.routers.runs.aggregate", return_value=fake_result)
+        mocker.patch("src.services.run_service.aggregate", return_value=fake_result)
 
         # When
         resp = await client.post(

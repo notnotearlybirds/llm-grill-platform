@@ -1,13 +1,19 @@
 import uuid
 
-import llm_grill
+from llm_grill.metrics import RequestMetrics, estimate_total_duration
+from llm_grill.metrics import aggregate as _aggregate
 
 from src.models import GpuType, Result, Run
 
 
 def aggregate(jsonl: str, run: Run) -> Result:
-    """Delegate to llm-grill and map AggregatedMetrics onto a Result row."""
-    metrics = llm_grill.aggregate(jsonl)
+    results = [
+        RequestMetrics.model_validate_json(line)
+        for line in jsonl.splitlines()
+        if line.strip()
+    ]
+    total_duration_s = estimate_total_duration(results) if results else 0.0
+    metrics = _aggregate(results, total_duration_s)
     return Result(
         id=uuid.uuid4(),
         run_id=run.id,

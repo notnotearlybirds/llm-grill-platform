@@ -6,14 +6,14 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 
-from src.db import AsyncSessionLocal, engine
+from src.db import engine
+from src.infra.watcher import watching_loop
 from src.models import Base
 from src.orchestrator import polling_loop
 from src.routers.leaderboard import router as leaderboard_router
 from src.routers.nodes import router as nodes_router
 from src.routers.results import router as results_router
 from src.routers.runs import router as runs_router
-from src.watcher import watching_loop
 
 logging.basicConfig(level=logging.INFO)
 
@@ -22,8 +22,8 @@ logging.basicConfig(level=logging.INFO)
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    task_poll = asyncio.create_task(polling_loop(AsyncSessionLocal))
-    task_watch = asyncio.create_task(watching_loop(AsyncSessionLocal))
+    task_poll = asyncio.create_task(polling_loop())
+    task_watch = asyncio.create_task(watching_loop())
     yield
     task_poll.cancel()
     task_watch.cancel()

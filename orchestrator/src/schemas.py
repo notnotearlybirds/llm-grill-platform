@@ -76,9 +76,9 @@ class LeaderboardEntry(BaseModel):
     ttft_p95_s: float
     success_rate: float
     run_id: uuid.UUID
-    measured_at: datetime
+    measured_at: datetime = Field(alias="created_at")
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "populate_by_name": True}
 
 
 class NodeCreate(BaseModel):

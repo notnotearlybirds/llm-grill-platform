@@ -37,7 +37,7 @@ class Settings(BaseSettings):
         "BAAI",
         "internlm",
         "moonshotai",
-        "coherelabs"
+        "coherelabs",
     ]
 
 

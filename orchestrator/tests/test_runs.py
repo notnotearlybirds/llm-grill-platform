@@ -11,7 +11,7 @@ import pytest
 
 from src.models import GpuType, Result, Run, RunStatus
 from src.orchestrator import handle_queued_run
-from src.routing import select_gpu
+from src.services.run_service import RunService
 
 
 def _make_result(run_id: uuid.UUID) -> Result:
@@ -201,7 +201,8 @@ class TestOrchestratorProvisioning:
         )
         async with session_factory() as session:
             run = await session.get(Run, queued_run)
-            await handle_queued_run(session, run)
+            gpu_type = run.gpu_type_required
+        await handle_queued_run(queued_run, gpu_type)
 
         # Then
         async with session_factory() as session:
@@ -226,7 +227,8 @@ class TestOrchestratorProvisioning:
         )
         async with session_factory() as session:
             run = await session.get(Run, queued_run)
-            await handle_queued_run(session, run)
+            gpu_type = run.gpu_type_required
+        await handle_queued_run(queued_run, gpu_type)
 
         # Then
         async with session_factory() as session:
@@ -258,13 +260,15 @@ class TestRunCompletion:
         Then: Run status is done, results_jsonl is stored, ended_at is set
         """
         # Given
-        mocker.patch("src.routers.runs.release_node")
+        mocker.patch("src.controllers.run_controller.release_node")
         mocker.patch(
-            "src.routers.runs.upload_results", return_value="runs/x/results.jsonl"
+            "src.services.run_service.upload_results",
+            return_value="runs/x/results.jsonl",
         )
         run_id = await self._create_running_run(client, session_factory)
         mocker.patch(
-            "src.routers.runs.aggregate", return_value=_make_result(uuid.UUID(run_id))
+            "src.services.run_service.aggregate",
+            return_value=_make_result(uuid.UUID(run_id)),
         )
 
         # When
@@ -291,7 +295,7 @@ class TestRunCompletion:
         Then: Run status is failed, error_message is stored
         """
         # Given
-        mocker.patch("src.routers.runs.release_node")
+        mocker.patch("src.controllers.run_controller.release_node")
         run_id = await self._create_running_run(client, session_factory)
 
         # When
@@ -306,6 +310,78 @@ class TestRunCompletion:
         assert data["status"] == "failed"
         assert data["error_message"] == "OOM during warmup"
 
+    async def test_should_return_404_when_completing_unknown_run(self, client, mocker):
+        """
+        Should return 404 when completing a run that does not exist.
+
+        Given: No run with the given id
+        When: POST /runs/{id}/complete is called
+        Then: 404 Not Found
+        """
+        # Given
+        mocker.patch("src.controllers.run_controller.release_node")
+        mocker.patch(
+            "src.services.run_service.upload_results",
+            return_value="runs/x/results.jsonl",
+        )
+
+        # When
+        resp = await client.post(
+            f"/runs/{uuid.uuid4()}/complete",
+            json={"results_jsonl": "{}"},
+        )
+
+        # Then
+        assert resp.status_code == 404
+
+    async def test_should_return_404_when_failing_unknown_run(self, client, mocker):
+        """
+        Should return 404 when failing a run that does not exist.
+
+        Given: No run with the given id
+        When: POST /runs/{id}/fail is called
+        Then: 404 Not Found
+        """
+        # Given
+        mocker.patch("src.controllers.run_controller.release_node")
+
+        # When
+        resp = await client.post(
+            f"/runs/{uuid.uuid4()}/fail",
+            json={"error_message": "OOM"},
+        )
+
+        # Then
+        assert resp.status_code == 404
+
+    async def test_should_reject_fail_on_done_run(
+        self, client, session_factory, mocker
+    ):
+        """
+        Should return 409 when trying to fail a run that is already done.
+
+        Given: A run with status=done
+        When: POST /runs/{id}/fail is called
+        Then: 409 Conflict
+        """
+        # Given
+        mocker.patch("src.controllers.run_controller.release_node")
+        resp = await client.post("/runs", json=SMALL_MODEL_PAYLOAD)
+        run_id = resp.json()["id"]
+        async with session_factory() as session:
+            run = await session.get(Run, uuid.UUID(run_id))
+            run.status = RunStatus.done
+            await session.commit()
+
+        # When
+        resp = await client.post(
+            f"/runs/{run_id}/fail",
+            json={"error_message": "late failure"},
+        )
+
+        # Then
+        assert resp.status_code == 409
+
     async def test_should_reject_complete_on_non_running_run(self, client, mocker):
         """
         Should return 409 when trying to complete a run that is not running.
@@ -315,14 +391,16 @@ class TestRunCompletion:
         Then: 409 Conflict
         """
         # Given
-        mocker.patch("src.routers.runs.release_node")
+        mocker.patch("src.controllers.run_controller.release_node")
         mocker.patch(
-            "src.routers.runs.upload_results", return_value="runs/x/results.jsonl"
+            "src.services.run_service.upload_results",
+            return_value="runs/x/results.jsonl",
         )
         resp = await client.post("/runs", json=SMALL_MODEL_PAYLOAD)
         run_id = resp.json()["id"]
         mocker.patch(
-            "src.routers.runs.aggregate", return_value=_make_result(uuid.UUID(run_id))
+            "src.services.run_service.aggregate",
+            return_value=_make_result(uuid.UUID(run_id)),
         )
 
         # When
@@ -347,7 +425,7 @@ class TestGpuRouting:
         When: select_gpu is called
         Then: GpuType.L40S is returned
         """
-        assert select_gpu(model_size_b) == GpuType.L40S
+        assert RunService.select_gpu(model_size_b) == GpuType.L40S
 
     @pytest.mark.parametrize("model_size_b", [26, 30, 70, 405])
     def test_should_route_at_or_above_threshold_to_h100(self, model_size_b):
@@ -358,4 +436,4 @@ class TestGpuRouting:
         When: select_gpu is called
         Then: GpuType.H100 is returned
         """
-        assert select_gpu(model_size_b) == GpuType.H100
+        assert RunService.select_gpu(model_size_b) == GpuType.H100

@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from huggingface_hub import list_models
 
 from src.config import settings
-from src.watcher import _detect_engine, _extract_size_b, _passes_filter
+from src.infra.watcher import _detect_engine, _extract_size_b, _passes_filter
 
 
 def main():
@@ -34,11 +34,11 @@ def main():
     since = datetime.now(timezone.utc) - timedelta(days=args.days)
     num_parameters = f"min:{args.min_size_b}B,max:{args.max_size_b}B"
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"  Watcher dry-run — window: {args.days}d | since: {since.date()}")
     print(f"  Size: [{args.min_size_b}B, {args.max_size_b}B]")
     print(f"  Watched orgs: {', '.join(settings.hf_watched_orgs) or '(all)'}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     total_seen = 0
     skipped_filter = 0
@@ -52,7 +52,9 @@ def main():
         num_parameters=num_parameters,
     ):
         if model_info.created_at and model_info.created_at < since:
-            print(f"  [stop] too old: {model_info.id} ({model_info.created_at.date()})\n")
+            print(
+                f"  [stop] too old: {model_info.id} ({model_info.created_at.date()})\n"
+            )
             break
 
         total_seen += 1
@@ -68,22 +70,30 @@ def main():
             continue
 
         engine = _detect_engine(model_info.id)
-        would_enqueue.append((model_info.id, size_b, engine.value, model_info.downloads or 0))
+        would_enqueue.append(
+            (model_info.id, size_b, engine.value, model_info.downloads or 0)
+        )
 
-    print(f"\n{'='*60}")
-    print(f"  Seen: {total_seen} | would enqueue: {len(would_enqueue)} | skip filter: {skipped_filter} | skip size: {skipped_size}")
-    print(f"{'='*60}")
+    print(f"\n{'=' * 60}")
+    print(
+        f"  Seen: {total_seen} | would enqueue: {len(would_enqueue)} | skip filter: {skipped_filter} | skip size: {skipped_size}"
+    )
+    print(f"{'=' * 60}")
 
     if would_enqueue:
-        print(f"\n  Top 5 would-enqueue by downloads:")
-        for model_id, size_b, engine, downloads in sorted(would_enqueue, key=lambda x: x[3], reverse=True)[:5]:
+        print("\n  Top 5 would-enqueue by downloads:")
+        for model_id, size_b, engine, downloads in sorted(
+            would_enqueue, key=lambda x: x[3], reverse=True
+        )[:5]:
             print(f"    {model_id} | {size_b}B | {engine} | {downloads:,} dl")
     else:
-        print(f"\n  No models to enqueue in this window — try --days 30")
+        print("\n  No models to enqueue in this window — try --days 30")
 
     if filtered_out:
-        print(f"\n  Top 5 filtered-out by downloads:")
-        for model_id, downloads in sorted(filtered_out, key=lambda x: x[1], reverse=True)[:5]:
+        print("\n  Top 5 filtered-out by downloads:")
+        for model_id, downloads in sorted(
+            filtered_out, key=lambda x: x[1], reverse=True
+        )[:5]:
             print(f"    {model_id} | {downloads:,} dl")
 
     print()

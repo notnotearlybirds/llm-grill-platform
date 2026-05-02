@@ -10,20 +10,21 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from src.models import Engine, GpuType, Run, RunStatus
-from src.watcher import (
-    _already_exists,
+from src.infra.watcher import (
     _detect_engine,
     _extract_size_b,
     _passes_filter,
     _scan_and_enqueue,
 )
+from src.models import Engine, GpuType, Run, RunStatus
+from src.repositories.run_repository import RunRepository
 
 
 def _model_info(
     model_id: str, downloads: int = 100_000, safetensors_total: int | None = None
 ):
     from datetime import datetime, timezone
+
     info = MagicMock()
     info.id = model_id
     info.downloads = downloads
@@ -101,37 +102,36 @@ class TestPassesFilter:
     """Unit tests for _passes_filter(): whitelist-based filtering."""
 
     def test_should_accept_whitelisted_org(self, monkeypatch):
-        from src import watcher
+        from src.infra import watcher
 
         monkeypatch.setattr(watcher.settings, "hf_watched_orgs", ["meta-llama"])
         assert _passes_filter(_model_info("meta-llama/Llama-3-8B")) is True
 
     def test_should_reject_non_whitelisted_org(self, monkeypatch):
-        from src import watcher
+        from src.infra import watcher
 
         monkeypatch.setattr(watcher.settings, "hf_watched_orgs", ["meta-llama"])
         assert _passes_filter(_model_info("other-org/Model-7B")) is False
 
     def test_should_accept_all_when_whitelist_empty(self, monkeypatch):
-        from src import watcher
+        from src.infra import watcher
 
         monkeypatch.setattr(watcher.settings, "hf_watched_orgs", [])
         assert _passes_filter(_model_info("any-org/any-model")) is True
 
 
-class TestAlreadyExists:
-    """Tests for _already_exists() deduplication logic."""
+class TestExistsActive:
+    """Tests for RunRepository.exists_active() deduplication logic."""
 
     async def test_should_return_false_when_no_run_exists(self, session_factory):
         """
         Should return False when no run for this model is in DB.
 
         Given: Empty DB
-        When: _already_exists is called
+        When: exists_active is called
         Then: False
         """
-        async with session_factory() as session:
-            result = await _already_exists(session, "meta-llama/Llama-3-8B")
+        result = await RunRepository.exists_active("meta-llama/Llama-3-8B")
         assert result is False
 
     async def test_should_return_true_for_queued_run(self, session_factory):
@@ -139,7 +139,7 @@ class TestAlreadyExists:
         Should return True when a queued run exists for this model.
 
         Given: A queued run for Llama-3-8B
-        When: _already_exists is called
+        When: exists_active is called
         Then: True
         """
         async with session_factory() as session:
@@ -155,8 +155,7 @@ class TestAlreadyExists:
             )
             await session.commit()
 
-        async with session_factory() as session:
-            result = await _already_exists(session, "meta-llama/Llama-3-8B")
+        result = await RunRepository.exists_active("meta-llama/Llama-3-8B")
         assert result is True
 
     async def test_should_return_false_for_failed_run(self, session_factory):
@@ -164,7 +163,7 @@ class TestAlreadyExists:
         Should allow re-enqueueing a model whose previous run failed.
 
         Given: A failed run for this model
-        When: _already_exists is called
+        When: exists_active is called
         Then: False (failed runs don't block re-enqueueing)
         """
         async with session_factory() as session:
@@ -180,8 +179,31 @@ class TestAlreadyExists:
             )
             await session.commit()
 
+        result = await RunRepository.exists_active("meta-llama/Llama-3-8B")
+        assert result is False
+
+    async def test_should_return_false_for_done_run(self, session_factory):
+        """
+        Should allow re-enqueueing a model whose previous run completed successfully.
+
+        Given: A done run for this model
+        When: exists_active is called
+        Then: False (completed runs don't block re-enqueueing)
+        """
         async with session_factory() as session:
-            result = await _already_exists(session, "meta-llama/Llama-3-8B")
+            session.add(
+                Run(
+                    model="meta-llama/Llama-3-8B",
+                    model_size_b=8,
+                    engine=Engine.vllm,
+                    gpu_type_required=GpuType.L40S,
+                    scenario_path="scenarios/basic_8b.yaml",
+                    status=RunStatus.done,
+                )
+            )
+            await session.commit()
+
+        result = await RunRepository.exists_active("meta-llama/Llama-3-8B")
         assert result is False
 
 
@@ -198,15 +220,15 @@ class TestScanAndEnqueue:
         When: _scan_and_enqueue is called
         Then: One Run is inserted with correct fields
         """
-        from src import watcher
+        from src.infra import watcher
 
         monkeypatch.setattr(watcher.settings, "hf_watched_orgs", ["meta-llama"])
         mocker.patch(
-            "src.watcher.list_models",
+            "src.infra.watcher.list_models",
             return_value=[_model_info("meta-llama/Llama-3-8B")],
         )
 
-        await _scan_and_enqueue(session_factory)
+        await _scan_and_enqueue()
 
         async with session_factory() as session:
             from sqlalchemy import select
@@ -228,15 +250,15 @@ class TestScanAndEnqueue:
         When: _scan_and_enqueue is called
         Then: No Run is inserted
         """
-        from src import watcher
+        from src.infra import watcher
 
         monkeypatch.setattr(watcher.settings, "hf_watched_orgs", [])
         mocker.patch(
-            "src.watcher.list_models",
+            "src.infra.watcher.list_models",
             return_value=[_model_info("org/unknown-model")],
         )
 
-        await _scan_and_enqueue(session_factory)
+        await _scan_and_enqueue()
 
         async with session_factory() as session:
             from sqlalchemy import select
@@ -254,7 +276,7 @@ class TestScanAndEnqueue:
         When: _scan_and_enqueue is called with the same model
         Then: Still only one Run in DB
         """
-        from src import watcher
+        from src.infra import watcher
 
         monkeypatch.setattr(watcher.settings, "hf_watched_orgs", [])
         async with session_factory() as session:
@@ -271,11 +293,11 @@ class TestScanAndEnqueue:
             await session.commit()
 
         mocker.patch(
-            "src.watcher.list_models",
+            "src.infra.watcher.list_models",
             return_value=[_model_info("meta-llama/Llama-3-8B")],
         )
 
-        await _scan_and_enqueue(session_factory)
+        await _scan_and_enqueue()
 
         async with session_factory() as session:
             from sqlalchemy import select
@@ -293,15 +315,15 @@ class TestScanAndEnqueue:
         When: _scan_and_enqueue is called
         Then: No Run is inserted
         """
-        from src import watcher
+        from src.infra import watcher
 
         monkeypatch.setattr(watcher.settings, "hf_watched_orgs", ["meta-llama"])
         mocker.patch(
-            "src.watcher.list_models",
+            "src.infra.watcher.list_models",
             return_value=[_model_info("other-org/SomeModel-7B")],
         )
 
-        await _scan_and_enqueue(session_factory)
+        await _scan_and_enqueue()
 
         async with session_factory() as session:
             from sqlalchemy import select
@@ -314,7 +336,9 @@ class TestScanAndEnqueue:
 class TestScanAndEnqueueIntegration:
     """Integration tests that call the real HuggingFace API via _scan_and_enqueue."""
 
-    async def test_should_enqueue_runs_from_real_hf_api(self, session_factory, monkeypatch):
+    async def test_should_enqueue_runs_from_real_hf_api(
+        self, session_factory, monkeypatch
+    ):
         """
         Should create at least one queued run from real HuggingFace data.
 
@@ -324,22 +348,26 @@ class TestScanAndEnqueueIntegration:
         """
         from sqlalchemy import select
 
-        from src import watcher
         from src.config import settings
+        from src.infra import watcher
 
         # Use a 30-day window to guarantee models exist regardless of when the test runs
         monkeypatch.setattr(watcher.settings, "hf_watch_interval_seconds", 30 * 86400)
 
-        await _scan_and_enqueue(session_factory)
+        await _scan_and_enqueue()
 
         async with session_factory() as session:
             runs = (await session.execute(select(Run))).scalars().all()
 
-        assert len(runs) > 0, "No runs were created — check org whitelist and HF connectivity"
+        assert len(runs) > 0, (
+            "No runs were created — check org whitelist and HF connectivity"
+        )
         # Vérifie que chaque run respecte au moins l'un des deux critères d'admission
         watched = set(settings.hf_watched_orgs)
         for run in runs:
             org = run.model.split("/")[0]
             in_whitelist = org in watched
-            has_downloads = run.model_size_b > 0  # si créé, c'est que le filtre est passé
+            has_downloads = (
+                run.model_size_b > 0
+            )  # si créé, c'est que le filtre est passé
             assert in_whitelist or has_downloads, f"Run inattendu: {run.model}"
