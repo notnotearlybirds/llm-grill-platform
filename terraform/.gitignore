@@ -1,0 +1,4 @@
+workspaces/*/
+*.tfvars
+!*.tfvars.example
+.terraform/

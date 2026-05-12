@@ -1,88 +1,93 @@
-# ADR 001b: Pipeline — Model Discovery and Orchestration
+# ADR 001b: Pipeline — Model List and Orchestration
 
 **Date:** 2026-03-25
-**Status:** Validated
+**Status:** Revised 2026-05-11
 **Parent:** [ADR 001](001-automated-benchmark-site.md)
 
 ---
 
 ## Context
 
-The pipeline must nightly:
-1. Discover new models on HuggingFace.
-2. Filter out already-benchmarked models.
+The pipeline must:
+1. Maintain a curated list of models to benchmark.
+2. Skip models already benchmarked for the current date.
 3. Orchestrate infra provisioning → benchmark → results commit.
 
-Discovery filters must be configurable (YAML, not hardcoded) to adapt over time.
-
-## Options Considered
-
-| Option | Description | Verdict |
-|--------|-------------|---------|
-| **A. Python scripts + YAML config + GitHub Actions cron** | `run.py` orchestrator driven by `config.yaml` | **Chosen** |
-| B. Airflow / Prefect | DAG manager | Rejected: overkill for a linear pipeline, extra infra to maintain |
+Automatic HuggingFace discovery was considered but dropped in favour of a simple hardcoded list (`models.yaml`). This keeps the pipeline auditable and avoids burning GPU time on unknown models.
 
 ## Decision
 
-**Option A**: Python scripts + YAML config + GitHub Actions.
+**Hardcoded model list + GitHub Actions CI.**
+
+No `discover.py`. No scheduled cron. The pipeline triggers on two events:
+- A push that modifies `models.yaml` → runs only the new / missing models.
+- A manual `workflow_dispatch` with optional `force=true` → re-runs everything.
 
 ## Design
 
-### Structure
+### Model list (`models.yaml`)
+
+Single source of truth at the repo root. Adding a model = opening a PR that edits this file.
+
+```yaml
+models:
+  - model: meta-llama/Llama-3.1-8B-Instruct
+    engine: vllm
+    size_b: 8
+  - model: bartowski/Qwen2.5-14B-Instruct-GGUF
+    engine: llamacpp
+    size_b: 14
+    gguf_file: Qwen2.5-14B-Instruct-Q4_K_M.gguf
+```
+
+Fields:
+- `model` — HuggingFace ID (`org/name`)
+- `engine` — `vllm` or `llamacpp`
+- `size_b` — model size in billions (used to select GPU type)
+- `scenario` — optional, defaults to `scenarios/basic_8b.yaml`
+- `gguf_file` — llamacpp only, specific GGUF filename to download
+
+### Scripts
 
 ```
-pipeline/
-├── config.yaml              # Discovery filters, backends, load params
-├── conversations.yaml       # Standard benchmark conversations
-├── discover.py              # HuggingFace Hub API → eligible models
-├── check_existing.py        # Scan results/ → skip already done
-├── generate_scenario.py     # Generate YAML scenarios for llm-grill
-└── run.py                   # Main orchestrator
+scripts/
+├── bench.py           # Read models.yaml, diff vs results/, POST to orchestrator
+└── wait_for_runs.py   # Poll orchestrator until all runs reach terminal state, save JSONL
 ```
 
-### Discovery (`discover.py`)
+**`bench.py`** deduplication: `results/YYYY-MM-DD/{slug}/{engine}.jsonl` exists → skip. Pass `--force` to override.
 
-Queries the HuggingFace Hub API with configurable filters from `config.yaml`:
-- **Task**: `text-generation`
-- **Sort**: `trending` or `lastModified`
-- **Max size**: safetensors weight < threshold (e.g. 75 GB for H100 80GB minus KV cache margin)
-- **Name patterns**: wildcards (`*instruct*`, `*chat*`)
-- **Tags**: include/exclude lists
-- **Explicit exclusions**: specific models to skip
+**`wait_for_runs.py`** polls `/runs?status=...` every 30 s, downloads completed JSONL from `results_url`, exits non-zero on any failure.
 
-GGUF detection: looks for `{model_id}-GGUF` repo or `.gguf` files. If absent, `llamacpp` backend is excluded for that model.
+### GitHub Actions (`.github/workflows/bench.yml`)
 
-### Deduplication (`check_existing.py`)
+Triggers:
+```yaml
+on:
+  push:
+    paths: [models.yaml]
+  workflow_dispatch:
+    inputs:
+      force: { type: boolean, default: false }
+      model: { type: string, default: "" }   # partial HF ID match
+```
 
-Existing JSONL file in `results/` = benchmark already done. Check is per (model, backend) pair. A model is fully covered when all expected backends have a file.
+Steps: install deps → `bench.py` → `wait_for_runs.py` → `git commit results/` → `git push`
 
-### Conversations (`conversations.yaml`)
+Required secrets: `ORCHESTRATOR_URL`, `HF_TOKEN`
 
-4 standard conversations testing different aspects:
-- **short-qa**: single-turn, short answer (baseline TTFT)
-- **coding**: single-turn code generation (throughput)
-- **multi-turn**: 3-turn conversation (KV cache effectiveness)
-- **long-context**: ~2K token prompt (stress test)
+### Orchestrator (FastAPI)
 
-### Orchestrator (`run.py`)
+Unchanged. Accepts `POST /runs`, provisions GPU nodes via Terraform, runs `runner.sh`, reports back. See [ADR 001a](001a-infra-terraform-scaleway.md) for infra details.
 
-For each eligible, non-benchmarked model:
-1. Determine available backends (exclude `llamacpp` if no GGUF)
-2. `terraform apply` → provision machines
-3. Run benchmarks in parallel (`asyncio`)
-4. `terraform destroy` (always, via `finally`)
-5. Commit and push results
+### Deduplication
 
-### GitHub Actions (`nightly.yml`)
-
-- Cron `0 2 * * *` + `workflow_dispatch` for manual trigger
-- Timeout: 180 min
-- Secrets: `SCW_ACCESS_KEY`, `SCW_SECRET_KEY`, `HF_TOKEN`
+File existence = benchmark done: `results/YYYY-MM-DD/{slug}/{engine}.jsonl`.
 
 ## Consequences
 
 | | |
 |---|---|
-| **+** | Configurable filters via YAML, simple dedup (file existence), idempotent pipeline, manual trigger for testing |
-| **−** | GitHub Actions 6h max timeout limits models per night; runner needs Scaleway + HF secrets |
-| **Risks** | HF API rate limits (mitigation: `limit: 50` + caching); model crashes a backend (mitigation: per-benchmark timeout + skip with logging) |
+| **+** | Fully auditable model list, no surprise GPU spend, simple dedup, easy to add/remove models via PR |
+| **−** | No automatic discovery of new models — someone must maintain `models.yaml` manually |
+| **Risks** | Long-running CI job (2h timeout set in workflow); mitigated by `wait_for_runs.py` hard timeout |

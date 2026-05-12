@@ -1,0 +1,75 @@
+name: bench
+
+on:
+  push:
+    paths:
+      - orchestrator/models.yaml
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Re-run all models (ignore existing results)"
+        type: boolean
+        default: false
+      model:
+        description: "Restrict to a single model (partial HF ID match, optional)"
+        type: string
+        default: ""
+
+jobs:
+  healthcheck:
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      up: ${{ steps.check.outputs.up }}
+
+    steps:
+      - name: Check orchestrator is up
+        id: check
+        env:
+          ORCHESTRATOR_URL: ${{ secrets.ORCHESTRATOR_URL }}
+        run: |
+          if curl -sf --max-time 10 "${ORCHESTRATOR_URL}/health" > /dev/null; then
+            echo "up=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Orchestrator not reachable — skipping bench."
+            echo "up=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  bench:
+    needs: healthcheck
+    if: needs.healthcheck.outputs.up == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 180
+
+    steps:
+      - name: Submit runs
+        env:
+          ORCHESTRATOR_URL: ${{ secrets.ORCHESTRATOR_URL }}
+        run: |
+          PARAMS="force=${{ github.event.inputs.force || 'false' }}"
+          if [[ -n "${{ github.event.inputs.model }}" ]]; then
+            PARAMS="$PARAMS&model=${{ github.event.inputs.model }}"
+          fi
+          curl -sf -X POST "${ORCHESTRATOR_URL}/bench?${PARAMS}" | tee /tmp/bench_submit.json
+          echo "Submitted: $(jq '.submitted | length' /tmp/bench_submit.json) runs"
+
+      - name: Wait for runs to complete
+        env:
+          ORCHESTRATOR_URL: ${{ secrets.ORCHESTRATOR_URL }}
+        run: |
+          until [[ "$(curl -sf "${ORCHESTRATOR_URL}/bench/status" | jq '.active')" == "0" ]]; do
+            echo "$(date -u +%H:%M:%S) — $(curl -sf "${ORCHESTRATOR_URL}/bench/status" | jq -c '.counts')"
+            sleep 30
+          done
+          echo "All runs finished."
+
+      - name: Fail if any run failed
+        env:
+          ORCHESTRATOR_URL: ${{ secrets.ORCHESTRATOR_URL }}
+        run: |
+          FAILED=$(curl -sf "${ORCHESTRATOR_URL}/bench/status" | jq '.counts.failed')
+          if [[ "$FAILED" -gt 0 ]]; then
+            echo "ERROR: $FAILED run(s) failed — check the orchestrator logs."
+            exit 1
+          fi
