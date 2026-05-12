@@ -16,7 +16,28 @@ on:
         default: ""
 
 jobs:
+  healthcheck:
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      up: ${{ steps.check.outputs.up }}
+
+    steps:
+      - name: Check orchestrator is up
+        id: check
+        env:
+          ORCHESTRATOR_URL: ${{ secrets.ORCHESTRATOR_URL }}
+        run: |
+          if curl -sf --max-time 10 "${ORCHESTRATOR_URL}/health" > /dev/null; then
+            echo "up=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Orchestrator not reachable — skipping bench."
+            echo "up=false" >> "$GITHUB_OUTPUT"
+          fi
+
   bench:
+    needs: healthcheck
+    if: needs.healthcheck.outputs.up == 'true'
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 180
