@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from fastapi import HTTPException, status
 
 from src.models import Node, NodeStatus
@@ -19,7 +17,7 @@ class NodeService:
         return await NodeRepository.create(node)
 
     @staticmethod
-    async def list() -> list[Node]:
+    async def list_all() -> list[Node]:
         return await NodeRepository.get_all()
 
     @staticmethod
@@ -29,5 +27,7 @@ class NodeService:
     @staticmethod
     async def deregister(node_id: str) -> Node:
         node = await NodeRepository.get(node_id)
+        if node is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="node not found")
         node.status = NodeStatus.down
         return await NodeRepository.save(node)

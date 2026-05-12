@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import uuid
 from datetime import datetime, timezone
 
@@ -21,7 +19,7 @@ class RunService:
         return await RunRepository.get(run_id)
 
     @staticmethod
-    async def list(status: RunStatus | None = None) -> list[Run]:
+    async def list_all(status: RunStatus | None = None) -> list[Run]:
         return await RunRepository.get_all(status)
 
     @staticmethod
@@ -62,6 +60,8 @@ class RunService:
         results_url = await upload_results(run_id, results_jsonl)
         async with _db.AsyncSessionLocal() as session:
             run = await session.get(Run, run_id)
+            if run is None:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, detail="run not found")
             run.results_url = results_url
             await session.commit()
             await session.refresh(run)

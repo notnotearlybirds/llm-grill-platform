@@ -1,10 +1,10 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.types import Uuid
 
 
 class Base(DeclarativeBase):
@@ -45,17 +45,13 @@ class Node(Base):
         Enum(NodeStatus), nullable=False, default=NodeStatus.provisioning
     )
     ip_address: Mapped[str | None] = mapped_column(String, nullable=True)
-    current_run_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), nullable=True
-    )
+    current_run_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(), nullable=True)
 
 
 class Run(Base):
     __tablename__ = "runs"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(), primary_key=True, default=uuid.uuid4)
     status: Mapped[RunStatus] = mapped_column(
         Enum(RunStatus), nullable=False, default=RunStatus.queued
     )
@@ -65,10 +61,13 @@ class Run(Base):
     gpu_type_required: Mapped[GpuType] = mapped_column(Enum(GpuType), nullable=False)
     gpu_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     scenario_path: Mapped[str] = mapped_column(String, nullable=False)
+    gguf_file: Mapped[str | None] = mapped_column(String, nullable=True)
     results_url: Mapped[str | None] = mapped_column(String, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
     started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
@@ -81,11 +80,9 @@ class Run(Base):
 class Result(Base):
     __tablename__ = "results"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(), primary_key=True, default=uuid.uuid4)
     run_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("runs.id"), unique=True, nullable=False
+        Uuid(), ForeignKey("runs.id"), unique=True, nullable=False
     )
     model: Mapped[str] = mapped_column(String, nullable=False)
     engine: Mapped[str] = mapped_column(String, nullable=False)
@@ -106,5 +103,7 @@ class Result(Base):
     requests_per_second: Mapped[float] = mapped_column(Float, nullable=False)
     total_duration_s: Mapped[float] = mapped_column(Float, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )

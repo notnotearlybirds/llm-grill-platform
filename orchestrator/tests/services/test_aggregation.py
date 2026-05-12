@@ -65,6 +65,7 @@ class TestAggregate:
             return_value=MagicMock(e2e_latency_s=0.5),
         )
         mocker.patch("src.aggregation._aggregate", return_value=metrics)
+        mocker.patch("src.aggregation.estimate_total_duration", return_value=0.5)
 
         # When
         result = aggregate("{}", run)
@@ -95,6 +96,7 @@ class TestAggregate:
             return_value=fake_request,
         )
         mock_agg = mocker.patch("src.aggregation._aggregate", return_value=metrics)
+        mocker.patch("src.aggregation.estimate_total_duration", return_value=1.0)
         jsonl = '{"tokens": 42}\n{"tokens": 38}\n'
 
         # When

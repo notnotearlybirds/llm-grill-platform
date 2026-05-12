@@ -55,7 +55,8 @@ async def provision_node(run_id: uuid.UUID, gpu_type: GpuType) -> tuple[str, str
     )
 
     secret_vars = [
-        "-var", f"hf_token={settings.hf_token}",
+        "-var",
+        f"hf_token={settings.hf_token}",
     ]
 
     await _terraform(workspace, "init", "-input=false")

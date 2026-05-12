@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from fastapi import HTTPException, status
 
 from src.schemas import NodeCreate, NodeRead
@@ -13,8 +11,8 @@ class NodeController:
         return NodeRead.model_validate(node)
 
     @staticmethod
-    async def list() -> list[NodeRead]:
-        nodes = await NodeService.list()
+    async def list_all() -> list[NodeRead]:
+        nodes = await NodeService.list_all()
         return [NodeRead.model_validate(n) for n in nodes]
 
     @staticmethod

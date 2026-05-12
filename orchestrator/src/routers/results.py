@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import uuid
 
 from fastapi import APIRouter
@@ -12,7 +10,7 @@ router = APIRouter(prefix="/results", tags=["results"])
 
 @router.get("", response_model=list[ResultRead])
 async def list_results():
-    return await ResultController.list()
+    return await ResultController.list_all()
 
 
 @router.get("/{run_id}", response_model=ResultRead)

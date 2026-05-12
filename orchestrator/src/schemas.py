@@ -11,6 +11,7 @@ class RunCreate(BaseModel):
     model_size_b: int = Field(gt=0, description="Model size in billions of parameters")
     engine: Engine
     scenario_path: str
+    gguf_file: str | None = None
 
 
 class RunComplete(BaseModel):
@@ -30,6 +31,7 @@ class RunRead(BaseModel):
     gpu_type_required: GpuType
     gpu_count: int
     scenario_path: str
+    gguf_file: str | None
     results_url: str | None
     error_message: str | None
     created_at: datetime

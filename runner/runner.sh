@@ -22,10 +22,15 @@ RUN_JSON=$(curl -sf "${ORCHESTRATOR_URL}/runs/${RUN_ID}")
 MODEL=$(echo "$RUN_JSON" | jq -r '.model')
 ENGINE=$(echo "$RUN_JSON" | jq -r '.engine')
 SCENARIO=$(echo "$RUN_JSON" | jq -r '.scenario_path')
+GGUF_FILE=$(echo "$RUN_JSON" | jq -r '.gguf_file // empty')
 
 # --- 2. Download model ---
 mkdir -p "${MODEL_DIR}/${MODEL}"
-HF_TOKEN="$HF_TOKEN" huggingface-cli download "$MODEL" --local-dir "${MODEL_DIR}/${MODEL}"
+if [[ -n "$GGUF_FILE" ]]; then
+  HF_TOKEN="$HF_TOKEN" huggingface-cli download "$MODEL" "$GGUF_FILE" --local-dir "${MODEL_DIR}/${MODEL}"
+else
+  HF_TOKEN="$HF_TOKEN" huggingface-cli download "$MODEL" --local-dir "${MODEL_DIR}/${MODEL}"
+fi
 
 # --- 3. Start engine ---
 if [[ "$ENGINE" == "vllm" ]]; then
@@ -33,7 +38,11 @@ if [[ "$ENGINE" == "vllm" ]]; then
     --model "${MODEL_DIR}/${MODEL}" --port "$ENGINE_PORT" &
   ENGINE_PID=$!
 elif [[ "$ENGINE" == "llamacpp" ]]; then
-  GGUF=$(ls "${MODEL_DIR}/${MODEL}"/*.gguf | head -1)
+  if [[ -n "$GGUF_FILE" ]]; then
+    GGUF="${MODEL_DIR}/${MODEL}/${GGUF_FILE}"
+  else
+    GGUF=$(ls "${MODEL_DIR}/${MODEL}"/*.gguf | head -1)
+  fi
   llama-server --model "$GGUF" --port "$ENGINE_PORT" --ctx-size 4096 &
   ENGINE_PID=$!
 else

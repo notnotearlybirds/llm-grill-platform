@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import uuid
 
 from fastapi import BackgroundTasks, HTTPException, status
@@ -17,8 +15,8 @@ class RunController:
         return RunRead.model_validate(run)
 
     @staticmethod
-    async def list(status: RunStatus | None) -> list[RunRead]:
-        runs = await RunService.list(status)
+    async def list_all(status: RunStatus | None) -> list[RunRead]:
+        runs = await RunService.list_all(status)
         return [RunRead.model_validate(r) for r in runs]
 
     @staticmethod

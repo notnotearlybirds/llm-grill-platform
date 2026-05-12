@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Query, status
@@ -18,7 +16,7 @@ async def create_run(body: RunCreate):
 
 @router.get("", response_model=list[RunRead])
 async def list_runs(status: RunStatus | None = Query(None)):
-    return await RunController.list(status)
+    return await RunController.list_all(status)
 
 
 @router.get("/{run_id}", response_model=RunRead)

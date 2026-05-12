@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import uuid
 
 from src.models import Result
@@ -10,7 +8,7 @@ from src.storage import presigned_url
 
 class ResultService:
     @staticmethod
-    async def list() -> list[Result]:
+    async def list_all() -> list[Result]:
         return await ResultRepository.get_all()
 
     @staticmethod

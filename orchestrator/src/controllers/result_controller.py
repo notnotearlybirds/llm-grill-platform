@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import uuid
 
 from fastapi import HTTPException, status
@@ -10,8 +8,8 @@ from src.services.result_service import ResultService
 
 class ResultController:
     @staticmethod
-    async def list() -> list[ResultRead]:
-        results = await ResultService.list()
+    async def list_all() -> list[ResultRead]:
+        results = await ResultService.list_all()
         return [ResultRead.model_validate(r) for r in results]
 
     @staticmethod

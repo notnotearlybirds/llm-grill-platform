@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,27 +20,8 @@ class Settings(BaseSettings):
     scw_access_key: str = ""
     scw_secret_key: str = ""
 
-    # HuggingFace model watcher
-    hf_min_size_b: int = 1
-    hf_max_size_b: int = 100
-    hf_watch_interval_seconds: int = 86400
-    hf_default_scenario: str = "scenarios/basic_8b.yaml"
-    hf_watched_orgs: list[str] = [
-        "meta-llama",
-        "mistralai",
-        "google",
-        "microsoft",
-        "nvidia",
-        "unsloth",
-        "bartowski",
-        "lmstudio-community",
-        "Qwen",
-        "deepseek-ai",
-        "BAAI",
-        "internlm",
-        "moonshotai",
-        "coherelabs",
-    ]
+    # Model list (deployed alongside the orchestrator)
+    models_file: Path = Path(__file__).parent.parent / "models.yaml"
 
 
 settings = Settings()

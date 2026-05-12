@@ -8,13 +8,14 @@ help:
 		| sort | awk 'BEGIN {FS = "(: |##)"}; {printf "• \033[36m%-30s\033[0m %s\n", $$2, $$3}'
 
 .PHONY: lint ## 🕵 run lint
-lint:
+lint: setup-dev
 	uv run ruff check . --fix
 	uv run ruff format .
 
 .PHONY: check ## 🕵 run check
-check:
+check: setup-dev
 	uv run ruff check .
+	uv run ty check
 
 .PHONY: setup ## 🔧 setup
 setup:
@@ -22,8 +23,8 @@ setup:
 
 .PHONY: setup-dev ## 🔧 setup-dev
 setup-dev:
-	uv sync --frozen --extra dev
+	uv sync --frozen --group dev
 
 .PHONY: test ## 🧪 test
-test:
+test: setup-dev
 	uv run pytest -v --cov=src --cov-report=html --cov-report=term

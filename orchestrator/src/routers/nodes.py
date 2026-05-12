@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from fastapi import APIRouter, status
 
 from src.controllers.node_controller import NodeController
@@ -15,7 +13,7 @@ async def register_node(body: NodeCreate):
 
 @router.get("", response_model=list[NodeRead])
 async def list_nodes():
-    return await NodeController.list()
+    return await NodeController.list_all()
 
 
 @router.get("/{node_id}", response_model=NodeRead)

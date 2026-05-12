@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import uuid
 from datetime import datetime
 
@@ -44,7 +42,7 @@ class RunRepository:
                 .where(Run.status.in_(_ACTIVE_STATUSES))
             )
             result = await session.execute(stmt)
-            return result.scalar()
+            return bool(result.scalar())
 
     @staticmethod
     async def create(run: Run) -> Run:
@@ -66,6 +64,8 @@ class RunRepository:
     async def set_provisioning(run_id: uuid.UUID) -> None:
         async with _db.AsyncSessionLocal() as session:
             run = await session.get(Run, run_id)
+            if run is None:
+                raise ValueError(f"Run with id {run_id} not found")
             run.status = RunStatus.provisioning
             await session.commit()
 
@@ -73,6 +73,8 @@ class RunRepository:
     async def set_running(run_id: uuid.UUID, started_at: datetime) -> None:
         async with _db.AsyncSessionLocal() as session:
             run = await session.get(Run, run_id)
+            if run is None:
+                raise ValueError(f"Run with id {run_id} not found")
             run.status = RunStatus.running
             run.started_at = started_at
             await session.commit()
@@ -83,6 +85,8 @@ class RunRepository:
     ) -> None:
         async with _db.AsyncSessionLocal() as session:
             run = await session.get(Run, run_id)
+            if run is None:
+                raise ValueError(f"Run with id {run_id} not found")
             run.status = RunStatus.failed
             run.ended_at = ended_at
             if error_message is not None:
