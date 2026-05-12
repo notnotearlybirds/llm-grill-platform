@@ -1,0 +1,49 @@
+name: ci
+
+on:
+  push:
+    paths:
+      - orchestrator/**
+  pull_request:
+    paths:
+      - orchestrator/**
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: orchestrator
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: make setup-dev
+
+      - name: Lint & type check
+        run: |
+          make check
+
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: orchestrator
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: make setup-dev
+
+      - name: Run tests
+        run: make test
