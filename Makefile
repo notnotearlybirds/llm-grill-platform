@@ -12,15 +12,15 @@ help:
 
 .PHONY: up ## 🚀 Start stack with migrations
 up:
-	$(COMPOSE_MIG) up --build --force-recreate -d
+	$(COMPOSE_MIG) up --build --force-recreate -d orchestrator postgres migration
 
 .PHONY: up-no-mig ## 🚀 Start stack without running migrations
 up-no-mig:
-	$(COMPOSE_BASE) up --build --force-recreate -d
+	$(COMPOSE_BASE) up --build --force-recreate -d orchestrator postgres
 
 .PHONY: up-debug ## 🐛 Start stack with migrations (foreground, streaming logs)
 up-debug:
-	$(COMPOSE_MIG) up --build --force-recreate
+	$(COMPOSE_MIG) up --build --force-recreate orchestrator postgres migration
 
 .PHONY: down ## 📉 Stop and remove containers
 down:

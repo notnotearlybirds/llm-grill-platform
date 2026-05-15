@@ -248,6 +248,7 @@ class TestSubmitHFExistence:
             "_load_models",
             lambda: _make_entries("missing/model"),
         )
+
         async def _raise(model_id: str) -> None:
             raise HTTPException(
                 status_code=422,

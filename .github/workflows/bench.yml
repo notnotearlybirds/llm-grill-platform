@@ -16,28 +16,127 @@ on:
         default: ""
 
 jobs:
-  healthcheck:
+  # ── 1. Provision VM + deploy stack ──────────────────────────────────────────
+  provision:
     runs-on: ubuntu-latest
     environment: production
     outputs:
-      up: ${{ steps.check.outputs.up }}
+      vm_ip: ${{ steps.tf_output.outputs.vm_ip }}
 
     steps:
-      - name: Check orchestrator is up
-        id: check
-        env:
-          ORCHESTRATOR_URL: ${{ secrets.ORCHESTRATOR_URL }}
-        run: |
-          if curl -sf --max-time 10 "${ORCHESTRATOR_URL}/health" > /dev/null; then
-            echo "up=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "Orchestrator not reachable — skipping bench."
-            echo "up=false" >> "$GITHUB_OUTPUT"
-          fi
+      - uses: actions/checkout@v4
 
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+          terraform_wrapper: false
+
+      - name: Terraform init
+        working-directory: infra
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
+        run: terraform init
+
+      - name: Terraform apply
+        working-directory: infra
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
+          SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
+          SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+          TF_VAR_ssh_public_keys: '["${{ secrets.DEPLOY_SSH_PUBLIC_KEY }}"]'
+          TF_VAR_admin_cidrs: '["0.0.0.0/0"]'
+          TF_VAR_deploy_user: "deploy"
+        run: terraform apply -auto-approve
+
+      - name: Get VM IP
+        id: tf_output
+        working-directory: infra
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
+        run: echo "vm_ip=$(terraform output -raw public_ip)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Wait for cloud-init (SSH up + Docker ready)
+        env:
+          VM_IP: ${{ steps.tf_output.outputs.vm_ip }}
+        run: |
+          echo "Waiting for SSH..."
+          for i in $(seq 1 30); do
+            if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 deploy@${VM_IP} "docker info > /dev/null 2>&1"; then
+              echo "VM ready."
+              ssh-keyscan -H ${VM_IP} >> ~/.ssh/known_hosts
+              break
+            fi
+            echo "Attempt $i/30 — retrying in 10s..."
+            sleep 10
+          done
+
+      - name: Copy repo to VM
+        env:
+          VM_IP: ${{ steps.tf_output.outputs.vm_ip }}
+        run: |
+          rsync -az --exclude='.git' --exclude='.venv' --exclude='__pycache__' \
+            ./ deploy@${VM_IP}:~/llm-grill-nightly/
+
+      - name: Write .env on VM
+        env:
+          VM_IP: ${{ steps.tf_output.outputs.vm_ip }}
+        run: |
+          ssh deploy@${VM_IP} "cat > ~/llm-grill-nightly/.env" <<EOF
+          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          ORCHESTRATOR_URL=http://${VM_IP}:8000
+          API_KEY=${{ secrets.API_KEY }}
+          HF_TOKEN=${{ secrets.HF_TOKEN }}
+          SCW_ACCESS_KEY=${{ secrets.SCW_ACCESS_KEY }}
+          SCW_SECRET_KEY=${{ secrets.SCW_SECRET_KEY }}
+          SCW_BUCKET=${{ secrets.SCW_BUCKET }}
+          SCW_REGION=${{ secrets.SCW_REGION }}
+          GPU_ZONE=${{ secrets.GPU_ZONE }}
+          DEBUG=false
+          EOF
+
+      - name: Start stack (postgres + migrations + orchestrator, no Caddy)
+        env:
+          VM_IP: ${{ steps.tf_output.outputs.vm_ip }}
+        run: |
+          ssh deploy@${VM_IP} "
+            set -e
+            cd ~/llm-grill-nightly
+            docker compose \
+              -f docker-compose.yml \
+              -f docker-compose.dev.yml \
+              -f docker-compose.with-migrations.yaml \
+              up --build -d postgres migration orchestrator
+          "
+
+      - name: Wait for orchestrator /health
+        env:
+          VM_IP: ${{ steps.tf_output.outputs.vm_ip }}
+        run: |
+          echo "Waiting for orchestrator..."
+          for i in $(seq 1 24); do
+            if curl -sf --max-time 5 "http://${VM_IP}:8000/health" > /dev/null; then
+              echo "Orchestrator up."
+              break
+            fi
+            echo "Attempt $i/24 — retrying in 10s..."
+            sleep 10
+          done
+
+  # ── 2. Run benchmarks ────────────────────────────────────────────────────────
   bench:
-    needs: healthcheck
-    if: needs.healthcheck.outputs.up == 'true'
+    needs: provision
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 180
@@ -45,31 +144,82 @@ jobs:
     steps:
       - name: Submit runs
         env:
-          ORCHESTRATOR_URL: ${{ secrets.ORCHESTRATOR_URL }}
+          VM_IP: ${{ needs.provision.outputs.vm_ip }}
+          API_KEY: ${{ secrets.API_KEY }}
         run: |
           PARAMS="force=${{ github.event.inputs.force || 'false' }}"
           if [[ -n "${{ github.event.inputs.model }}" ]]; then
             PARAMS="$PARAMS&model=${{ github.event.inputs.model }}"
           fi
-          curl -sf -X POST "${ORCHESTRATOR_URL}/bench?${PARAMS}" | tee /tmp/bench_submit.json
+          curl -sf -X POST \
+            -H "X-Api-Key: ${API_KEY}" \
+            "http://${VM_IP}:8000/bench?${PARAMS}" | tee /tmp/bench_submit.json
           echo "Submitted: $(jq '.submitted | length' /tmp/bench_submit.json) runs"
 
       - name: Wait for runs to complete
         env:
-          ORCHESTRATOR_URL: ${{ secrets.ORCHESTRATOR_URL }}
+          VM_IP: ${{ needs.provision.outputs.vm_ip }}
         run: |
-          until [[ "$(curl -sf "${ORCHESTRATOR_URL}/bench/status" | jq '.active')" == "0" ]]; do
-            echo "$(date -u +%H:%M:%S) — $(curl -sf "${ORCHESTRATOR_URL}/bench/status" | jq -c '.counts')"
+          until [[ "$(curl -sf "http://${VM_IP}:8000/bench/status" | jq '.active')" == "0" ]]; do
+            echo "$(date -u +%H:%M:%S) — $(curl -sf "http://${VM_IP}:8000/bench/status" | jq -c '.counts')"
             sleep 30
           done
           echo "All runs finished."
 
+      - name: Export leaderboard to S3
+        env:
+          VM_IP: ${{ needs.provision.outputs.vm_ip }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
+          SCW_BUCKET: ${{ secrets.SCW_BUCKET }}
+          SCW_REGION: ${{ secrets.SCW_REGION }}
+        run: |
+          curl -sf "http://${VM_IP}:8000/leaderboard" > leaderboard.json
+          aws s3 cp leaderboard.json "s3://${SCW_BUCKET}/leaderboard.json" \
+            --endpoint-url "https://s3.${SCW_REGION}.scw.cloud" \
+            --content-type "application/json" \
+            --acl public-read
+
       - name: Fail if any run failed
         env:
-          ORCHESTRATOR_URL: ${{ secrets.ORCHESTRATOR_URL }}
+          VM_IP: ${{ needs.provision.outputs.vm_ip }}
         run: |
-          FAILED=$(curl -sf "${ORCHESTRATOR_URL}/bench/status" | jq '.counts.failed')
+          FAILED=$(curl -sf "http://${VM_IP}:8000/bench/status" | jq '.counts.failed')
           if [[ "$FAILED" -gt 0 ]]; then
-            echo "ERROR: $FAILED run(s) failed — check the orchestrator logs."
+            echo "ERROR: $FAILED run(s) failed — check orchestrator logs."
             exit 1
           fi
+
+  # ── 3. Destroy VM (always, even if bench failed) ─────────────────────────────
+  teardown:
+    needs: [provision, bench]
+    if: always() && needs.provision.result == 'success'
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+          terraform_wrapper: false
+
+      - name: Terraform init
+        working-directory: infra
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
+        run: terraform init
+
+      - name: Terraform destroy
+        working-directory: infra
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
+          SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
+          SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+          TF_VAR_ssh_public_keys: '["${{ secrets.DEPLOY_SSH_PUBLIC_KEY }}"]'
+          TF_VAR_admin_cidrs: '["0.0.0.0/0"]'
+          TF_VAR_deploy_user: "deploy"
+        run: terraform destroy -auto-approve

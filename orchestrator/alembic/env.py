@@ -18,7 +18,11 @@ from src.models import (
 config = context.config
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
-    raise ValueError("DATABASE_URL environment variable is not set")
+    user = os.getenv("POSTGRES_USER", "postgres")
+    password = os.getenv("POSTGRES_PASSWORD", "")
+    host = os.getenv("POSTGRES_HOST", "localhost")
+    db = os.getenv("POSTGRES_DB", "llmgrill")
+    DATABASE_URL = f"postgresql+asyncpg://{user}:{password}@{host}/{db}"
 # alembic needs a sync driver; swap asyncpg for psycopg2
 config.set_main_option("sqlalchemy.url", DATABASE_URL.replace("+asyncpg", ""))
 

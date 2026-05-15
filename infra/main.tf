@@ -21,6 +21,13 @@ resource "scaleway_instance_security_group" "orchestrator" {
     protocol = "TCP"
   }
 
+  # Direct API access for ephemeral CI runs (no Caddy/TLS needed)
+  inbound_rule {
+    action   = "accept"
+    port     = 8000
+    protocol = "TCP"
+  }
+
   dynamic "inbound_rule" {
     for_each = var.admin_cidrs
     content {

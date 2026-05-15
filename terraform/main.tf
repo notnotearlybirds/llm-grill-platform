@@ -24,9 +24,10 @@ resource "scaleway_instance_server" "gpu" {
 
   user_data = {
     "cloud-init" = templatefile("${path.module}/cloud-init.tpl.yaml", {
-      run_id           = var.run_id
-      orchestrator_url = var.orchestrator_url
-      hf_token         = var.hf_token
+      run_id               = var.run_id
+      orchestrator_url     = var.orchestrator_url
+      hf_token             = var.hf_token
+      orchestrator_api_key = var.orchestrator_api_key
     })
   }
 }

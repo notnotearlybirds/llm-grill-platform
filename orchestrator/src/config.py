@@ -1,14 +1,28 @@
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost/llmgrill"
+    database_url: str = ""
+    postgres_user: str = "postgres"
+    postgres_password: str = ""
+    postgres_host: str = "localhost"
+    postgres_db: str = "llmgrill"
+
     poll_interval_seconds: int = 10
+
+    @model_validator(mode="after")
+    def build_database_url(self) -> "Settings":
+        if not self.database_url:
+            self.database_url = (
+                f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
+                f"@{self.postgres_host}/{self.postgres_db}"
+            )
+        return self
 
     # Terraform / Scaleway
     orchestrator_url: str = "http://localhost:8000"
@@ -21,6 +35,7 @@ class Settings(BaseSettings):
     scw_access_key: str = ""
     scw_secret_key: str = ""
     api_key: str
+    debug: bool = False
 
     # Model list (deployed alongside the orchestrator)
     models_file: Path = Path(__file__).resolve().parents[1] / "models.yaml"
@@ -33,4 +48,4 @@ class Settings(BaseSettings):
         return v
 
 
-settings = Settings() # ty: ignore[missing-argument]
+settings = Settings()  # ty: ignore[missing-argument]

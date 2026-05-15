@@ -10,7 +10,7 @@ from src.models import GpuType
 
 logger = logging.getLogger(__name__)
 
-_TERRAFORM_DIR = Path(__file__).resolve().parents[3] / "terraform"
+_TERRAFORM_DIR = Path(__file__).resolve().parents[2] / "terraform"
 _WORKSPACES_DIR = _TERRAFORM_DIR / "workspaces"
 
 _INSTANCE_TYPE = {
