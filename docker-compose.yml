@@ -8,6 +8,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: llmgrill
       PGTZ: UTC
+    ports:
+      - "5433:5432"
     volumes:
       - llmgrill_db:/var/lib/postgresql
     healthcheck:
@@ -41,8 +43,8 @@ services:
       SSH_PUBLIC_KEYS: ${SSH_PUBLIC_KEYS}
       RUN_RUNNING_TIMEOUT_MINUTES: ${RUN_RUNNING_TIMEOUT_MINUTES:-60}
       DEBUG: ${DEBUG}
-    expose:
-      - "8000"
+    ports:
+      - "8000:8000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -50,25 +52,6 @@ services:
       retries: 3
       start_period: 15s
 
-  caddy:
-    container_name: llmgrill-caddy
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      orchestrator:
-        condition: service_healthy
-
 volumes:
   llmgrill_db:
     name: llmgrill_db
-  caddy_data:
-    name: llmgrill_caddy_data
-  caddy_config:
-    name: llmgrill_caddy_config

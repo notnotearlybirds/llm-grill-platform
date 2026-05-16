@@ -1,7 +1,7 @@
 .SILENT:
 .DEFAULT_GOAL: help
 
-COMPOSE_BASE = docker-compose -f docker-compose.yml -f docker-compose.dev.yml
+COMPOSE_BASE = docker-compose -f docker-compose.yml
 COMPOSE_MIG  = $(COMPOSE_BASE) -f docker-compose.with-migrations.yaml
 
 help:

@@ -24,19 +24,6 @@ resource "scaleway_instance_security_group" "orchestrator" {
 
   inbound_rule {
     action   = "accept"
-    port     = 80
-    protocol = "TCP"
-  }
-
-  inbound_rule {
-    action   = "accept"
-    port     = 443
-    protocol = "TCP"
-  }
-
-  # Direct API access for ephemeral CI runs (no Caddy/TLS needed)
-  inbound_rule {
-    action   = "accept"
     port     = 8000
     protocol = "TCP"
   }

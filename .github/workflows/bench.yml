@@ -105,7 +105,7 @@ jobs:
           DEBUG=false
           EOF
 
-      - name: Start stack (postgres + migrations + orchestrator, no Caddy)
+      - name: Start stack (postgres + migrations + orchestrator)
         env:
           VM_IP: ${{ steps.tf_output.outputs.vm_ip }}
         run: |
@@ -114,7 +114,6 @@ jobs:
             cd ~/llm-grill-nightly
             docker compose \
               -f docker-compose.yml \
-              -f docker-compose.dev.yml \
               -f docker-compose.with-migrations.yaml \
               up --build -d postgres migration orchestrator
           "
@@ -220,4 +219,8 @@ jobs:
           SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
           TF_VAR_ssh_public_keys: '["${{ secrets.DEPLOY_SSH_PUBLIC_KEY }}"]'
           TF_VAR_admin_cidrs: '["0.0.0.0/0"]'
-        run: terraform destroy -auto-approve
+        run: |
+          terraform destroy -auto-approve \
+            -target=scaleway_instance_server.orchestrator \
+            -target=scaleway_instance_ip.orchestrator \
+            -target=scaleway_instance_security_group.orchestrator

@@ -62,7 +62,10 @@ class RunService:
             body = body[:_HALF_LOG_BYTES] + marker + body[-_HALF_LOG_BYTES:]
         key = await upload_logs(run_id, body)
         await RunRepository.set_logs_url(run_id, key)
-        return await RunRepository.get(run_id)  # type: ignore[return-value]
+        updated = await RunRepository.get(run_id)
+        if updated is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="run not found after log upload")
+        return updated
 
     @staticmethod
     async def fail(run_id: uuid.UUID, error_message: str) -> Run:
