@@ -46,11 +46,23 @@ def _classify(stderr: str) -> TerraformError:
     return TerraformError(stderr.strip())
 
 
-parent_dir = Path(__file__).resolve().parents[2]
-_TERRAFORM_DIR = parent_dir / "terraform"
+def _find_repo_root() -> Path:
+    """Find the ancestor that holds runner/runner.sh.
+
+    Works both in local dev (repo root) and in the Docker image (/app), as long
+    as the Dockerfile copies `runner/` as a directory (not just the script).
+    """
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "runner" / "runner.sh").is_file():
+            return parent
+    raise RuntimeError("could not locate repo root (runner/runner.sh not found)")
+
+
+_REPO_ROOT = _find_repo_root()
+_TERRAFORM_DIR = _REPO_ROOT / "terraform"
 _WORKSPACES_DIR = _TERRAFORM_DIR / "workspaces"
-_RUNNER_SCRIPT = parent_dir.parent / "runner" / "runner.sh"
-_SCENARIOS_ROOT = parent_dir.parent
+_RUNNER_SCRIPT = _REPO_ROOT / "runner" / "runner.sh"
+_SCENARIOS_ROOT = _REPO_ROOT
 
 _INSTANCE_TYPE = {
     GpuType.L40S: "L40S-1-48G",

@@ -24,7 +24,7 @@ COPY orchestrator/alembic.ini ./alembic.ini
 COPY orchestrator/models.yaml ./models.yaml
 COPY terraform ./terraform
 COPY scenarios ./scenarios
-COPY runner/runner.sh ./runner.sh
+COPY runner ./runner
 
 RUN useradd --system --no-create-home appuser && chown -R appuser /app
 USER appuser
