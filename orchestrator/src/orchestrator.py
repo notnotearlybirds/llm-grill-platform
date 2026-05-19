@@ -34,26 +34,29 @@ async def handle_queued_run(run_id, gpu_type_required) -> None:
             return
         try:
             instance_id, public_ip = await provision_node(run)
-        except OutOfStockError:
+        except (OutOfStockError, ScalewayQuotaError) as exc:
+            reason = "out of stock" if isinstance(exc, OutOfStockError) else "quota exceeded"
             attempt = await RunRepository.requeue_for_retry(
                 run_id, settings.provision_max_attempts
             )
             await NodeRepository.set_down_by_run(run_id)
             if attempt is None:
                 logger.warning(
-                    "run {} giving up after {} provision attempts (out of stock)",
+                    "run {} giving up after {} provision attempts ({})",
                     run_id,
                     settings.provision_max_attempts,
+                    reason,
                 )
                 await RunRepository.set_failed(
                     run_id,
                     datetime.now(timezone.utc),
-                    f"out of stock after {settings.provision_max_attempts} attempts",
+                    f"{reason} after {settings.provision_max_attempts} attempts",
                 )
             else:
                 logger.warning(
-                    "run {} out of stock, re-queued (attempt {}/{})",
+                    "run {} {}, re-queued (attempt {}/{})",
                     run_id,
+                    reason,
                     attempt,
                     settings.provision_max_attempts,
                 )
@@ -61,10 +64,6 @@ async def handle_queued_run(run_id, gpu_type_required) -> None:
         except ScalewayAuthError as exc:
             logger.warning("run {} provision failed: scaleway auth error", run_id)
             await _fail(run_id, f"scaleway auth: {exc}")
-            return
-        except ScalewayQuotaError as exc:
-            logger.warning("run {} provision failed: scaleway quota exceeded", run_id)
-            await _fail(run_id, f"scaleway quota: {exc}")
             return
         except TerraformError as exc:
             logger.warning("run {} provision failed: terraform error: {}", run_id, exc)
