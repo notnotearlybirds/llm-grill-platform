@@ -93,13 +93,13 @@ jobs:
           VM_IP: ${{ steps.tf_output.outputs.vm_ip }}
         run: |
           rsync -az --exclude='.git' --exclude='.venv' --exclude='__pycache__' \
-            ./ deploy@${VM_IP}:~/llm-grill-nightly/
+            ./ deploy@${VM_IP}:~/llm-grill-platform/
 
       - name: Write .env on VM
         env:
           VM_IP: ${{ steps.tf_output.outputs.vm_ip }}
         run: |
-          ssh deploy@${VM_IP} "cat > ~/llm-grill-nightly/.env" <<EOF
+          ssh deploy@${VM_IP} "cat > ~/llm-grill-platform/.env" <<EOF
           POSTGRES_USER=${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_DB=${{ secrets.POSTGRES_DB }}
@@ -122,7 +122,7 @@ jobs:
         run: |
           ssh deploy@${VM_IP} "
             set -e
-            cd ~/llm-grill-nightly
+            cd ~/llm-grill-platform
             docker compose \
               -f docker-compose.yml \
               -f docker-compose.with-migrations.yaml \

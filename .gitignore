@@ -1,5 +1,42 @@
-.claude/worktrees
-__pycache__
+# Secrets / local env
 .env
+.env.local
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 .coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# Terraform — never commit state or local var files
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform/
+.terraform.lock.hcl.bak
+crash.log
+crash.*.log
+
+# Runner artefacts
+results/
+*.jsonl
+
+# Editors / OS
 .DS_Store
+.idea/
+.vscode/
+
+# Claude Code
+.claude/worktrees/
+.claude/settings.local.json
+.claire/
