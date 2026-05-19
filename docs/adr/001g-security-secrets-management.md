@@ -35,7 +35,7 @@ Long-lived API keys stored as GitHub Actions secrets work but have risks: no exp
 
 ### Scaleway IAM
 
-Dedicated IAM application `llm-grill-nightly` scoped to:
+Dedicated IAM application `llm-grill-platform` scoped to:
 - A single Scaleway Project (not the whole Organization)
 - Instance management permissions only (no storage, no billing)
 - Project-level quota: max 5 H100 instances (prevents runaway provisioning)

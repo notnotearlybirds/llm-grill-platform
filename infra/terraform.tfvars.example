@@ -1,0 +1,13 @@
+region        = "fr-par"
+zone          = "fr-par-2"
+instance_type = "DEV1-S"
+
+# Your SSH public key(s) — used by CI and for emergency access
+ssh_public_keys = [
+  "ssh-ed25519 AAAA... you@machine",
+]
+
+# Restrict SSH to your static IPs only
+admin_cidrs = [
+  "1.2.3.4/32",
+]

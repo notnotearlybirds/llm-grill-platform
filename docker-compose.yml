@@ -1,0 +1,57 @@
+services:
+  postgres:
+    container_name: llmgrill-postgres
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PGTZ: UTC
+    ports:
+      - "5433:5432"
+    volumes:
+      - llmgrill_db:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  orchestrator:
+    container_name: llmgrill-orchestrator
+    image: llmgrill-orchestrator
+    build:
+      context: .
+      dockerfile: orchestrator/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
+      ORCHESTRATOR_URL: ${ORCHESTRATOR_URL}
+      API_KEY: ${API_KEY}
+      HF_TOKEN: ${HF_TOKEN}
+      SCW_ACCESS_KEY: ${SCW_ACCESS_KEY}
+      SCW_SECRET_KEY: ${SCW_SECRET_KEY}
+      SCW_DEFAULT_PROJECT_ID: ${SCW_DEFAULT_PROJECT_ID}
+      SCW_DEFAULT_ORGANIZATION_ID: ${SCW_DEFAULT_ORGANIZATION_ID}
+      SCW_BUCKET: ${SCW_BUCKET}
+      SCW_REGION: ${SCW_REGION}
+      GPU_ZONE: ${GPU_ZONE}
+      SSH_PUBLIC_KEYS: ${SSH_PUBLIC_KEYS}
+      RUN_RUNNING_TIMEOUT_MINUTES: ${RUN_RUNNING_TIMEOUT_MINUTES:-60}
+      DEBUG: ${DEBUG}
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  llmgrill_db:
+    name: llmgrill_db

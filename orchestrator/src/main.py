@@ -1,13 +1,12 @@
 import asyncio
-import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 
-from src.db import engine
-from src.models import Base
+from src.config import settings
+from src.logging_config import setup_logging
 from src.orchestrator import polling_loop
 from src.routers.bench import router as bench_router
 from src.routers.leaderboard import router as leaderboard_router
@@ -15,20 +14,22 @@ from src.routers.nodes import router as nodes_router
 from src.routers.results import router as results_router
 from src.routers.runs import router as runs_router
 
-logging.basicConfig(level=logging.INFO)
+setup_logging("DEBUG" if settings.debug else "INFO")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
     task_poll = asyncio.create_task(polling_loop())
     yield
     task_poll.cancel()
-    await engine.dispose()
 
 
-app = FastAPI(title="llm-grill orchestrator", lifespan=lifespan)
+app = FastAPI(
+    title="llm-grill orchestrator",
+    lifespan=lifespan,
+    docs_url="/docs" if settings.debug else None,
+    redoc_url="/redoc" if settings.debug else None,
+)
 app.include_router(bench_router)
 app.include_router(runs_router)
 app.include_router(nodes_router)

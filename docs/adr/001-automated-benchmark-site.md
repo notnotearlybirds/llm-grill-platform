@@ -12,7 +12,7 @@ The `llm-grill` CLI benchmarks LLM inference servers manually. We want to automa
 
 ## Decision
 
-Create a dedicated repo (`llm-grill-nightly`) split into independent components, each documented in a sub-ADR:
+Create a dedicated repo (`llm-grill-platform`) split into independent components, each documented in a sub-ADR:
 
 | ADR | Component | Scope |
 |-----|-----------|-------|
@@ -27,7 +27,7 @@ Create a dedicated repo (`llm-grill-nightly`) split into independent components,
 ## Architecture
 
 ```
-llm-grill-nightly/
+llm-grill-platform/
 ├── .github/workflows/
 │   ├── bench.yml            # Triggered on models.yaml push or manual dispatch (001b)
 │   └── deploy.yml           # Rebuild site on results/ push (001d)

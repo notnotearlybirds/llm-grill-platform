@@ -38,8 +38,41 @@ variable "gpu_zone" {
   }
 }
 
+variable "orchestrator_api_key" {
+  description = "API key for authenticating against the orchestrator"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 variable "ssh_public_keys" {
   description = "SSH public keys for emergency access"
   type        = list(string)
   default     = []
+}
+
+variable "model" {
+  description = "HuggingFace model repo (e.g. meta-llama/Llama-3.1-8B-Instruct)"
+  type        = string
+}
+
+variable "engine" {
+  description = "Inference engine (vllm or llamacpp)"
+  type        = string
+}
+
+variable "scenario_path" {
+  description = "llm-grill scenario YAML path inside the runner image"
+  type        = string
+}
+
+variable "gguf_file" {
+  description = "Optional GGUF filename within the model repo (llamacpp only)"
+  type        = string
+  default     = ""
+}
+
+variable "scenario_content" {
+  description = "Raw YAML content of the llm-grill scenario to run"
+  type        = string
 }
