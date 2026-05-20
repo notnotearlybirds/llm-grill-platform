@@ -23,17 +23,23 @@ class RunRepository:
             return list(result.scalars().all())
 
     @staticmethod
-    async def claim_queued() -> list[tuple[uuid.UUID, GpuType]]:
-        """Atomically fetch queued runs and transition them to provisioning.
+    async def claim_queued(limit: int) -> list[tuple[uuid.UUID, GpuType]]:
+        """Atomically fetch up to `limit` queued runs and transition them to provisioning.
 
         Uses SELECT FOR UPDATE SKIP LOCKED so concurrent pollers never pick
-        up the same run twice.
+        up the same run twice. `limit` lets the caller cap claims to the number
+        of free provisioning slots, so `provisioning` in DB reflects work that
+        is actually about to enter `provision_node` (not runs queued behind a
+        semaphore).
         """
+        if limit <= 0:
+            return []
         async with db.AsyncSessionLocal() as session:
             result = await session.execute(
                 select(Run)
                 .where(Run.status == RunStatus.queued)
                 .with_for_update(skip_locked=True)
+                .limit(limit)
             )
             runs = result.scalars().all()
             for run in runs:
@@ -170,6 +176,45 @@ class RunRepository:
                 r.status = RunStatus.failed
                 r.ended_at = now
                 r.error_message = "timeout: claimed by reaper"
+            await session.commit()
+            return ids
+
+    @staticmethod
+    async def get_orphaned_provisioning() -> list[uuid.UUID]:
+        """Return ids of runs left in `provisioning` from a previous process.
+
+        Called once at startup: since no concurrent worker exists yet, any row
+        in `provisioning` is necessarily orphaned by the previous crash/restart.
+        """
+        async with db.AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(Run.id).where(Run.status == RunStatus.provisioning)
+            )
+            return [row[0] for row in result.all()]
+
+    @staticmethod
+    async def claim_provisioning_timed_out(cutoff: datetime) -> list[uuid.UUID]:
+        """Transition timed-out `provisioning` runs to `failed` and return their ids.
+
+        A run can get stuck in `provisioning` if terraform hangs, the
+        orchestrator crashed mid-apply, or any unhandled path skipped the
+        `set_running`/`set_failed` transition. `created_at` is used as the
+        reference point since runs do not record a provisioning-start
+        timestamp.
+        """
+        async with db.AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(Run)
+                .where(Run.status == RunStatus.provisioning, Run.created_at < cutoff)
+                .with_for_update(skip_locked=True)
+            )
+            runs = result.scalars().all()
+            ids = [r.id for r in runs]
+            now = datetime.now(timezone.utc)
+            for r in runs:
+                r.status = RunStatus.failed
+                r.ended_at = now
+                r.error_message = "timeout: stuck in provisioning"
             await session.commit()
             return ids
 
