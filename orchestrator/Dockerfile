@@ -30,5 +30,9 @@ RUN useradd --system --no-create-home appuser && chown -R appuser /app
 USER appuser
 
 ENV UV_CACHE_DIR=/app/.cache/uv
+# Share the Scaleway provider across per-run terraform workspaces so every
+# `terraform init` doesn't re-download/extract it (saves disk + RAM under load).
+ENV TF_PLUGIN_CACHE_DIR=/app/.cache/terraform-plugins
+RUN mkdir -p /app/.cache/terraform-plugins
 
 CMD ["uv", "run", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]

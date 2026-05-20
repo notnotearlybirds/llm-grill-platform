@@ -91,12 +91,15 @@ async def provision_node(run: Run) -> tuple[str, str]:
     run_id = run.id
     gpu_type = run.gpu_type_required
     workspace = _workspace(run_id)
-    workspace.mkdir(parents=True, exist_ok=True)
 
-    for f in _TERRAFORM_DIR.glob("*.tf"):
-        shutil.copy(f, workspace)
-    shutil.copy(_TERRAFORM_DIR / "cloud-init.tpl.yaml", workspace)
-    shutil.copy(_RUNNER_SCRIPT, workspace)
+    def _stage_workspace() -> None:
+        workspace.mkdir(parents=True, exist_ok=True)
+        for f in _TERRAFORM_DIR.glob("*.tf"):
+            shutil.copy(f, workspace)
+        shutil.copy(_TERRAFORM_DIR / "cloud-init.tpl.yaml", workspace)
+        shutil.copy(_RUNNER_SCRIPT, workspace)
+
+    await asyncio.to_thread(_stage_workspace)
 
     ssh_keys = [k.strip() for k in settings.ssh_public_keys.split(",") if k.strip()]
     ssh_keys_hcl = "[" + ", ".join(f'"{k}"' for k in ssh_keys) + "]"
@@ -104,11 +107,13 @@ async def provision_node(run: Run) -> tuple[str, str]:
     scenario_file = (_SCENARIOS_ROOT / run.scenario_path).resolve()
     if not scenario_file.is_file():
         raise TerraformError(f"scenario file not found: {scenario_file}")
-    scenario_content = scenario_file.read_text().replace("${MODEL}", run.model)
+    scenario_content = (await asyncio.to_thread(scenario_file.read_text)).replace(
+        "${MODEL}", run.model
+    )
 
     # Non-secret vars written to file; secrets passed via -var flags to avoid disk exposure
     var_file = workspace / "terraform.tfvars"
-    var_file.write_text(
+    var_file_contents = (
         f'run_id          = "{run_id}"\n'
         f'gpu_type        = "{gpu_type.value}"\n'
         f'instance_type   = "{_INSTANCE_TYPE[gpu_type]}"\n'
@@ -121,6 +126,7 @@ async def provision_node(run: Run) -> tuple[str, str]:
         f'gguf_file       = "{run.gguf_file or ""}"\n'
         f"scenario_content = <<EOT_SCENARIO\n{scenario_content}\nEOT_SCENARIO\n"
     )
+    await asyncio.to_thread(var_file.write_text, var_file_contents)
 
     secret_vars = [
         "-var",
@@ -154,5 +160,5 @@ async def destroy_node(run_id: uuid.UUID) -> None:
     await _terraform(
         workspace, "destroy", "-auto-approve", "-input=false", *secret_vars
     )
-    shutil.rmtree(workspace)
+    await asyncio.to_thread(shutil.rmtree, workspace)
     logger.info("destroyed node for run {}", run_id)
