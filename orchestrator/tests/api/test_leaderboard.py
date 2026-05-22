@@ -111,3 +111,29 @@ class TestLeaderboard:
 
         # Then
         assert fetch_mock.call_count == 1
+
+    async def test_should_refetch_after_ttl_expires(self, client, mocker):
+        """
+        Given: A first request cached leaderboard.json
+        When:  A second request hits just past the 60s TTL (clock advanced)
+        Then:  fetch_leaderboard is called again (cache considered stale)
+        """
+        # Given
+        import src.services.result_service as rs
+
+        payload = json.dumps([_leaderboard_entry()]).encode()
+        fetch_mock = mocker.patch(
+            "src.services.result_service.fetch_leaderboard", return_value=payload
+        )
+
+        # When: first call caches; we then age the cache past the TTL window
+        # (cheaper and safer than patching the global time.monotonic, which
+        # asyncio also consumes).
+        await client.get("/leaderboard")
+        assert rs._leaderboard_cache is not None
+        cached_at, entries = rs._leaderboard_cache
+        rs._leaderboard_cache = (cached_at - rs._LEADERBOARD_TTL_SECONDS - 1, entries)
+        await client.get("/leaderboard")
+
+        # Then
+        assert fetch_mock.call_count == 2

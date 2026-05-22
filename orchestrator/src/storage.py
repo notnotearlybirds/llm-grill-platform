@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 import boto3
 from botocore.config import Config
+from botocore.exceptions import ClientError
 
 from src.config import settings
 from src.models import Engine, Result, Run
@@ -15,6 +16,14 @@ from src.schemas import CompletedRunMeta
 _SCW_ENDPOINT = f"https://s3.{settings.scw_region}.scw.cloud"
 
 _LEADERBOARD_KEY = "leaderboard.json"
+
+# Error codes S3 (AWS or Scaleway) returns for a missing object. head_object
+# yields "404"/"NotFound" (no modeled exception), get_object yields "NoSuchKey".
+_NOT_FOUND_CODES = {"404", "NoSuchKey", "NotFound"}
+
+
+def _is_not_found(exc: ClientError) -> bool:
+    return exc.response["Error"]["Code"] in _NOT_FOUND_CODES
 
 
 def _client():
@@ -110,8 +119,8 @@ async def head_latest_meta(model: str, engine: Engine | str) -> bool:
         try:
             client.head_object(Bucket=settings.scw_bucket, Key=key)
             return True
-        except client.exceptions.ClientError as exc:
-            if exc.response["Error"]["Code"] in {"404", "NoSuchKey", "NotFound"}:
+        except ClientError as exc:
+            if _is_not_found(exc):
                 return False
             raise
 
@@ -146,8 +155,10 @@ async def fetch_latest_results(model: str, engine: Engine | str) -> bytes | None
         try:
             obj = client.get_object(Bucket=settings.scw_bucket, Key=key)
             return obj["Body"].read()
-        except client.exceptions.NoSuchKey:
-            return None
+        except ClientError as exc:
+            if _is_not_found(exc):
+                return None
+            raise
 
     return await asyncio.to_thread(_get)
 
@@ -161,8 +172,10 @@ async def fetch_logs(run: Run) -> bytes | None:
         try:
             obj = client.get_object(Bucket=settings.scw_bucket, Key=key)
             return obj["Body"].read()
-        except client.exceptions.NoSuchKey:
-            return None
+        except ClientError as exc:
+            if _is_not_found(exc):
+                return None
+            raise
 
     return await asyncio.to_thread(_get)
 
@@ -187,6 +200,11 @@ async def update_leaderboard_for(run: Run, result: Result) -> None:
     Reads the current leaderboard, drops any stale entry for this
     (model, engine), appends the fresh one, writes back. Cheaper than
     recomputing every entry from `latest.jsonl` and idempotent across retries.
+
+    No concurrency control: this is a plain read-modify-write. Two completions
+    landing within the same window could drop one entry. Accepted given run
+    completions trickle in minutes apart; revisit with conditional writes
+    (ETag/If-Match) if completions ever become bursty.
     """
     current = await fetch_leaderboard()
     entries: list[dict] = json.loads(current) if current else []
@@ -240,8 +258,10 @@ async def fetch_leaderboard() -> bytes | None:
         try:
             obj = client.get_object(Bucket=settings.scw_bucket, Key=_LEADERBOARD_KEY)
             return obj["Body"].read()
-        except client.exceptions.NoSuchKey:
-            return None
+        except ClientError as exc:
+            if _is_not_found(exc):
+                return None
+            raise
 
     return await asyncio.to_thread(_get)
 
