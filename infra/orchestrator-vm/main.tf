@@ -25,10 +25,11 @@ resource "scaleway_object_bucket" "results" {
     max_age_seconds = 3600
   }
 
+  # Reclaim storage from multipart uploads that were started but never completed.
   lifecycle_rule {
-    id                                     = "expire-noncurrent"
+    id                                     = "abort-incomplete-multipart"
     enabled                                = true
-    abort_incomplete_multipart_upload_days = 0
+    abort_incomplete_multipart_upload_days = 7
   }
 }
 
