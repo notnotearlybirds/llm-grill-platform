@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import yaml
+from loguru import logger
 
 if TYPE_CHECKING:
     from src.services.bench_service import ModelEntry
@@ -29,7 +30,7 @@ def _quantization(gguf_file: str | None) -> str | None:
     if not gguf_file:
         return None
     match = _QUANT_RE.search(Path(gguf_file).stem)
-    return match.group(0) if match else None
+    return match.group(0).upper() if match else None
 
 
 def build_models_catalog(entries: list[ModelEntry]) -> list[dict]:
@@ -57,25 +58,38 @@ def build_scenarios_catalog(root: Path) -> list[dict]:
     scenarios_dir = root / "scenarios"
     if not scenarios_dir.is_dir():
         return []
-    return [
-        _scenario_summary(f"scenarios/{path.name}", yaml.safe_load(path.read_text()))
-        for path in sorted(scenarios_dir.glob("*.yaml"))
-    ]
+    catalog: list[dict] = []
+    for path in sorted(scenarios_dir.glob("*.yaml")):
+        doc = yaml.safe_load(path.read_text())
+        if not isinstance(doc, dict):
+            # A malformed scenario (top-level list/str/empty) must not break the
+            # whole bench submission — skip it and keep publishing the rest.
+            logger.warning("Skipping malformed scenario file: {}", path.name)
+            continue
+        catalog.append(_scenario_summary(f"scenarios/{path.name}", doc))
+    return catalog
 
 
 def _scenario_summary(scenario_path: str, doc: dict) -> dict:
-    load = doc.get("load", {})
-    models = doc.get("models", [])
-    conversations = doc.get("conversations", [])
+    load = doc.get("load") or {}
+    models = doc.get("models") or []
+    conversations = doc.get("conversations") or []
     return {
         "path": scenario_path,
         "name": doc.get("name", Path(scenario_path).stem),
         "description": (doc.get("description") or "").strip(),
         "concurrency_levels": load.get("ramp_levels", []),
         "iterations": load.get("iterations"),
-        "max_tokens": models[0].get("max_tokens") if models else None,
+        "max_tokens": _first_max_tokens(models),
         "prompt": _first_user_prompt(conversations),
     }
+
+
+def _first_max_tokens(models: list) -> int | None:
+    for model in models:
+        if isinstance(model, dict) and "max_tokens" in model:
+            return model["max_tokens"]
+    return None
 
 
 def _first_user_prompt(conversations: list[dict]) -> str | None:
