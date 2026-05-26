@@ -2,6 +2,8 @@
 
 from typing import Literal
 
+import pytest
+
 from src.catalog import build_models_catalog, build_scenarios_catalog
 from src.services.bench_service import ModelEntry
 
@@ -11,8 +13,15 @@ def _entry(
     engine: Literal["vllm", "llamacpp"] = "vllm",
     size_b: int = 8,
     gguf_file: str | None = None,
+    categories: list[str] | None = None,
 ) -> ModelEntry:
-    return ModelEntry(model=model, engine=engine, size_b=size_b, gguf_file=gguf_file)
+    return ModelEntry(
+        model=model,
+        engine=engine,
+        size_b=size_b,
+        gguf_file=gguf_file,
+        categories=categories,
+    )
 
 
 class TestBuildModelsCatalog:
@@ -30,9 +39,11 @@ class TestBuildModelsCatalog:
             {
                 "model": "Qwen/Qwen2.5-14B-Instruct",
                 "engine": "vllm",
+                "display_name": "Qwen2.5 14B",
                 "brand": "Qwen",
                 "params_b": 14,
                 "quantization": None,
+                "categories": ["Dense"],
                 "scenario": "scenarios/ramp.yaml",
             }
         ]
@@ -54,6 +65,77 @@ class TestBuildModelsCatalog:
         )
 
         assert catalog[0]["quantization"] == "Q4_K_M"
+
+
+class TestDisplayName:
+    """display_name is derived from the HF id (strip org + instruct/format suffixes)."""
+
+    @pytest.mark.parametrize(
+        "model, expected",
+        [
+            ("Qwen/Qwen2.5-14B-Instruct", "Qwen2.5 14B"),
+            ("meta-llama/Llama-3.1-8B-Instruct", "Llama 3.1 8B"),
+            ("mistralai/Mixtral-8x7B-Instruct-v0.1", "Mixtral 8x7B"),
+            ("google/gemma-2-27b-it", "gemma 2 27b"),
+            ("bartowski/Qwen2.5-14B-Instruct-GGUF", "Qwen2.5 14B"),
+            ("meta-llama/Llama-3.1-8B-Base", "Llama 3.1 8B Base"),
+            ("org/model-v0.3-Instruct", "model"),  # version token + noise stripped
+            ("org/Gemma_2_27b_it", "Gemma 2 27b"),  # underscores + lowercase noise
+            ("org/MODEL-IT", "MODEL"),  # case-insensitive noise
+        ],
+    )
+    def test_should_derive_readable_name(self, model, expected):
+        """Given an HF id, When the catalog is built, Then display_name is cleaned."""
+        catalog = build_models_catalog([_entry(model)])
+        assert catalog[0]["display_name"] == expected
+
+    def test_should_fall_back_to_segment_when_fully_stripped(self):
+        """Given a name that is all noise tokens, Then keep the raw segment."""
+        catalog = build_models_catalog([_entry("x/Instruct")])
+        assert catalog[0]["display_name"] == "Instruct"
+
+
+class TestCategories:
+    """categories: declared in models.yaml (default Dense) + automatic Quantized."""
+
+    def test_should_use_editorial_categories_when_provided(self):
+        """Given explicit categories, When built, Then they pass through verbatim."""
+        catalog = build_models_catalog(
+            [_entry("x/Custom-Model", categories=["Reasoning", "MoE"])]
+        )
+        assert catalog[0]["categories"] == ["Reasoning", "MoE"]
+
+    def test_should_default_to_dense_when_omitted(self):
+        """Given no categories, When built, Then defaults to ["Dense"] (no guessing)."""
+        catalog = build_models_catalog([_entry("mistralai/Mixtral-8x7B-Instruct")])
+        assert catalog[0]["categories"] == ["Dense"]
+
+    def test_should_append_quantized_even_to_editorial_categories(self):
+        """Given editorial tags + a GGUF file, Then Quantized is still appended."""
+        catalog = build_models_catalog(
+            [
+                _entry(
+                    "x/Custom-Model",
+                    engine="llamacpp",
+                    gguf_file="Custom-Q4_K_M.gguf",
+                    categories=["Reasoning"],
+                )
+            ]
+        )
+        assert catalog[0]["categories"] == ["Reasoning", "Quantized"]
+
+    def test_should_tag_quantized_on_default_dense_for_gguf(self):
+        """Given a GGUF entry with no editorial tags, Then ["Dense", "Quantized"]."""
+        catalog = build_models_catalog(
+            [
+                _entry(
+                    "bartowski/Qwen2.5-14B-Instruct-GGUF",
+                    engine="llamacpp",
+                    gguf_file="Qwen2.5-14B-Instruct-Q4_K_M.gguf",
+                )
+            ]
+        )
+        assert catalog[0]["categories"] == ["Dense", "Quantized"]
 
 
 class TestBuildScenariosCatalog:

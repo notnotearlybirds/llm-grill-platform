@@ -4,9 +4,10 @@ The static frontend reads only public JSON from S3; it cannot read models.yaml
 or scenarios/*.yaml from the repo. So we derive `models.json` and
 `scenarios.json` from those files at bench time and publish them.
 
-Everything here is derived — no editorial field is hand-maintained in
-models.yaml (see the agent design discussion). `brand` comes from the HF org,
-`params_b` from `size_b`, `quantization` is parsed from the GGUF filename.
+Almost everything is derived: `brand` from the HF org, `params_b` from
+`size_b`, `quantization` parsed from the GGUF filename, `display_name` cleaned
+from the HF id. The one optional editorial field is `categories`, declared per
+entry in models.yaml (defaults to `["Dense"]` when omitted).
 """
 
 from __future__ import annotations
@@ -33,15 +34,56 @@ def _quantization(gguf_file: str | None) -> str | None:
     return match.group(0).upper() if match else None
 
 
+# Trailing tokens dropped when deriving a human display name. We keep "base"
+# so base vs instruct/finetuned variants stay distinguishable.
+_NAME_NOISE = {"instruct", "it", "chat", "hf", "gguf", "preview"}
+
+
+def _is_version_token(token: str) -> bool:
+    """True for version tags like "v0.3" or "v2" (dropped from display names)."""
+    return token[:1].lower() == "v" and token[1:].replace(".", "").isdigit()
+
+
+def _display_name(model: str) -> str:
+    """Human name from an HF id: drop the org and trailing format/instruct tokens.
+
+    e.g. "Qwen/Qwen2.5-14B-Instruct" -> "Qwen2.5 14B". Best-effort and
+    deterministic; an editorial name could override this later if needed.
+    Falls back to the raw segment if stripping leaves nothing.
+    """
+    segment = model.split("/")[-1] or model
+    tokens = segment.replace("_", "-").split("-")
+    while tokens and (
+        tokens[-1].lower() in _NAME_NOISE or _is_version_token(tokens[-1])
+    ):
+        tokens.pop()
+    return " ".join(tokens).strip() or segment
+
+
+def _categories(entry: ModelEntry) -> list[str]:
+    """Editorial categories declared in models.yaml (default `["Dense"]`), plus
+    an automatic `Quantized` tag for GGUF/quantized runs.
+
+    Architecture tags (MoE/Reasoning) are *declared*, not guessed: string
+    matching on model ids is too fragile to classify silently. Frontend filters.
+    """
+    tags = list(entry.categories) if entry.categories is not None else ["Dense"]
+    if _quantization(entry.gguf_file) is not None and "Quantized" not in tags:
+        tags.append("Quantized")
+    return tags
+
+
 def build_models_catalog(entries: list[ModelEntry]) -> list[dict]:
     """One derived metadata row per (model, engine), keyed by the front on `model`."""
     return [
         {
             "model": e.model,
             "engine": e.engine,
+            "display_name": _display_name(e.model),
             "brand": e.model.split("/")[0],
             "params_b": e.size_b,
             "quantization": _quantization(e.gguf_file),
+            "categories": _categories(e),
             "scenario": e.scenario,
         }
         for e in entries

@@ -179,11 +179,14 @@ class TestAggregatePerConcurrency:
             "n_requests",
             "success_rate",
             "ttft_mean_s",
+            "ttft_median_s",
             "ttft_p95_s",
             "tpot_mean_s",
             "e2e_mean_s",
             "e2e_p95_s",
             "tokens_per_second_mean",
+            "total_tokens_per_second",
+            "requests_per_second",
         }
 
     def test_should_return_empty_list_for_empty_input(self):

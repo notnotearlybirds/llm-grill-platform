@@ -8,6 +8,8 @@
 #   size_b:      model size in billions of parameters
 #   scenario:    path to scenario YAML (default: scenarios/ramp.yaml)
 #   gguf_file:   (llamacpp only) specific GGUF filename to download
+#   categories:  editorial tags for the frontend filters, e.g. [MoE], [Reasoning]
+#                (default: [Dense]; "Quantized" is added automatically for GGUF)
 
 models:
   # --- Small (7-9B) ---
@@ -43,6 +45,7 @@ models:
   - model: google/gemma-4-26B-A4B-it
     engine: vllm
     size_b: 27
+    categories: [MoE]
 
   # --- Large (70B+) ---
   - model: meta-llama/Llama-3.3-70B-Instruct
@@ -57,14 +60,17 @@ models:
   - model: deepseek-ai/DeepSeek-R1-Distill-Llama-8B
     engine: vllm
     size_b: 8
+    categories: [Reasoning]
 
   - model: deepseek-ai/DeepSeek-R1-Distill-Qwen-32B
     engine: vllm
     size_b: 32
+    categories: [Reasoning]
 
   - model: Qwen/QwQ-32B
     engine: vllm
     size_b: 32
+    categories: [Reasoning]
 
   # --- llama.cpp (Q4_K_M quantized) ---
   - model: bartowski/Llama-3.2-3B-Instruct-GGUF

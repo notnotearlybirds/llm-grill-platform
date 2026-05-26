@@ -1,0 +1,39 @@
+name: publish-catalogs
+
+# Refresh the public models.json / scenarios.json on S3 whenever the source
+# files change. Pure derivation — no VM, no GPU, no orchestrator. The static
+# frontend fetches these at runtime, so the change is live immediately.
+on:
+  push:
+    branches: [main]
+    paths:
+      - orchestrator/models.yaml
+      - scenarios/**
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: orchestrator
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: make setup
+
+      - name: Publish catalogs to S3
+        env:
+          API_KEY: ${{ secrets.API_KEY }}
+          SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
+          SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+          SCW_BUCKET: ${{ secrets.SCW_BUCKET }}
+          SCW_REGION: ${{ secrets.SCW_REGION }}
+        run: make publish-catalogs
