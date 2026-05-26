@@ -79,6 +79,9 @@ class TestDisplayName:
             ("google/gemma-2-27b-it", "gemma 2 27b"),
             ("bartowski/Qwen2.5-14B-Instruct-GGUF", "Qwen2.5 14B"),
             ("meta-llama/Llama-3.1-8B-Base", "Llama 3.1 8B Base"),
+            ("org/model-v0.3-Instruct", "model"),  # version token + noise stripped
+            ("org/Gemma_2_27b_it", "Gemma 2 27b"),  # underscores + lowercase noise
+            ("org/MODEL-IT", "MODEL"),  # case-insensitive noise
         ],
     )
     def test_should_derive_readable_name(self, model, expected):

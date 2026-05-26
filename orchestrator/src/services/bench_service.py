@@ -48,6 +48,20 @@ def _load_models() -> list[ModelEntry]:
     return [ModelEntry.model_validate(entry) for entry in raw]
 
 
+def _filter_entries(
+    entries: list[ModelEntry], model_filter: str | None
+) -> list[ModelEntry]:
+    """Restrict entries to those whose id contains `model_filter` (case-insensitive).
+
+    Shared by `submit` and `pending_run_count` so the bench selection criteria
+    can't drift between the CI preflight and the real submit path.
+    """
+    if not model_filter:
+        return entries
+    needle = model_filter.lower()
+    return [e for e in entries if needle in e.model.lower()]
+
+
 async def _check_hf_exists(model_id: str) -> None:
     try:
         await asyncio.to_thread(
@@ -88,9 +102,7 @@ async def pending_run_count(force: bool, model_filter: str | None) -> int:
     Mirrors `submit`'s S3 dedup without touching the DB, so CI can decide
     whether provisioning a VM is worth it. `force` counts everything.
     """
-    entries = _load_models()
-    if model_filter:
-        entries = [e for e in entries if model_filter.lower() in e.model.lower()]
+    entries = _filter_entries(_load_models(), model_filter)
     if force:
         return len(entries)
     flags = await asyncio.gather(
@@ -100,16 +112,15 @@ async def pending_run_count(force: bool, model_filter: str | None) -> int:
 
 
 async def submit(force: bool = False, model_filter: str | None = None) -> dict:
-    entries = _load_models()
-    await _publish_catalogs(entries)
+    all_entries = _load_models()
+    await _publish_catalogs(all_entries)
 
-    if model_filter:
-        entries = [e for e in entries if model_filter.lower() in e.model.lower()]
-        if not entries:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"No model matching '{model_filter}' in models.yaml",
-            )
+    entries = _filter_entries(all_entries, model_filter)
+    if model_filter and not entries:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No model matching '{model_filter}' in models.yaml",
+        )
 
     submitted: list[str] = []
     skipped: list[str] = []
