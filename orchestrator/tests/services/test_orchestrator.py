@@ -264,14 +264,11 @@ class TestProvisionUnderPermit:
         prov.assert_not_called()
 
     @pytest.mark.parametrize(
-        "exc, reason_fragment",
-        [
-            (OutOfStockError("x"), "out of stock"),
-            (ScalewayQuotaError("x"), "quota"),
-        ],
+        "exc",
+        [OutOfStockError("x"), ScalewayQuotaError("x")],
     )
     async def test_should_requeue_on_capacity_errors(
-        self, session_factory, mocker, exc, reason_fragment
+        self, session_factory, mocker, exc
     ):
         """
         Given: provision_node raises a capacity error and retries remain
