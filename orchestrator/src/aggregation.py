@@ -65,11 +65,14 @@ def aggregate_per_concurrency(jsonl: str) -> list[dict]:
                 "n_requests": m.total_requests,
                 "success_rate": m.success_rate,
                 "ttft_mean_s": m.ttft_mean_s,
+                "ttft_median_s": m.ttft_median_s,
                 "ttft_p95_s": m.ttft_p95_s,
                 "tpot_mean_s": m.tpot_mean_s,
                 "e2e_mean_s": m.e2e_mean_s,
                 "e2e_p95_s": m.e2e_p95_s,
                 "tokens_per_second_mean": m.tokens_per_second_mean,
+                "total_tokens_per_second": m.total_tokens_per_second,
+                "requests_per_second": m.requests_per_second,
             }
         )
     return breakdown

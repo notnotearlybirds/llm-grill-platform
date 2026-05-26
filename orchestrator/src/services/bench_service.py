@@ -29,6 +29,10 @@ class ModelEntry(BaseModel):
     size_b: int
     scenario: str = "scenarios/ramp.yaml"
     gguf_file: str | None = None
+    # Editorial, optional. Free-form tags surfaced as frontend filters
+    # (Reasoning | MoE | Dense | Quantized). When absent, catalog derivation
+    # falls back to a heuristic — see catalog._categories.
+    categories: list[str] | None = None
 
     @field_validator("gguf_file")
     @classmethod

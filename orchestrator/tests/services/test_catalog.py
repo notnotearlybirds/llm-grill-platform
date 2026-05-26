@@ -2,6 +2,8 @@
 
 from typing import Literal
 
+import pytest
+
 from src.catalog import build_models_catalog, build_scenarios_catalog
 from src.services.bench_service import ModelEntry
 
@@ -11,8 +13,15 @@ def _entry(
     engine: Literal["vllm", "llamacpp"] = "vllm",
     size_b: int = 8,
     gguf_file: str | None = None,
+    categories: list[str] | None = None,
 ) -> ModelEntry:
-    return ModelEntry(model=model, engine=engine, size_b=size_b, gguf_file=gguf_file)
+    return ModelEntry(
+        model=model,
+        engine=engine,
+        size_b=size_b,
+        gguf_file=gguf_file,
+        categories=categories,
+    )
 
 
 class TestBuildModelsCatalog:
@@ -30,9 +39,11 @@ class TestBuildModelsCatalog:
             {
                 "model": "Qwen/Qwen2.5-14B-Instruct",
                 "engine": "vllm",
+                "display_name": "Qwen2.5 14B",
                 "brand": "Qwen",
                 "params_b": 14,
                 "quantization": None,
+                "categories": ["Dense"],
                 "scenario": "scenarios/ramp.yaml",
             }
         ]
@@ -54,6 +65,64 @@ class TestBuildModelsCatalog:
         )
 
         assert catalog[0]["quantization"] == "Q4_K_M"
+
+
+class TestDisplayName:
+    """display_name is derived from the HF id (strip org + instruct/format suffixes)."""
+
+    @pytest.mark.parametrize(
+        "model, expected",
+        [
+            ("Qwen/Qwen2.5-14B-Instruct", "Qwen2.5 14B"),
+            ("meta-llama/Llama-3.1-8B-Instruct", "Llama 3.1 8B"),
+            ("mistralai/Mixtral-8x7B-Instruct-v0.1", "Mixtral 8x7B"),
+            ("google/gemma-2-27b-it", "gemma 2 27b"),
+            ("bartowski/Qwen2.5-14B-Instruct-GGUF", "Qwen2.5 14B"),
+        ],
+    )
+    def test_should_derive_readable_name(self, model, expected):
+        """Given an HF id, When the catalog is built, Then display_name is cleaned."""
+        catalog = build_models_catalog([_entry(model)])
+        assert catalog[0]["display_name"] == expected
+
+
+class TestCategories:
+    """categories: editorial override wins, else a heuristic from the id."""
+
+    def test_should_use_editorial_categories_when_provided(self):
+        """Given explicit categories, When built, Then they pass through verbatim."""
+        catalog = build_models_catalog(
+            [_entry("x/Custom-Model", categories=["Reasoning", "MoE"])]
+        )
+        assert catalog[0]["categories"] == ["Reasoning", "MoE"]
+
+    @pytest.mark.parametrize(
+        "model, expected",
+        [
+            ("meta-llama/Llama-3.1-8B-Instruct", ["Dense"]),
+            ("mistralai/Mixtral-8x7B-Instruct", ["MoE"]),
+            ("Qwen/Qwen3-30B-A3B", ["MoE"]),
+            ("Qwen/QwQ-32B-Preview", ["Reasoning"]),
+            ("deepseek-ai/DeepSeek-R1", ["Reasoning"]),
+        ],
+    )
+    def test_should_derive_architecture_tag(self, model, expected):
+        """Given no editorial tags, When built, Then architecture is inferred."""
+        catalog = build_models_catalog([_entry(model)])
+        assert catalog[0]["categories"] == expected
+
+    def test_should_tag_quantized_for_gguf(self):
+        """Given a GGUF llamacpp entry, When built, Then Quantized is appended."""
+        catalog = build_models_catalog(
+            [
+                _entry(
+                    "bartowski/Mixtral-8x7B-GGUF",
+                    engine="llamacpp",
+                    gguf_file="Mixtral-8x7B-Q4_K_M.gguf",
+                )
+            ]
+        )
+        assert catalog[0]["categories"] == ["MoE", "Quantized"]
 
 
 class TestBuildScenariosCatalog:
