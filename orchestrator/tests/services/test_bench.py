@@ -44,6 +44,63 @@ def no_s3_catalog(monkeypatch):
     monkeypatch.setattr(bench_service, "upload_scenarios_catalog", _noop)
 
 
+class TestPendingRunCount:
+    """pending_run_count() drives the CI provisioning gate (S3 dedup, no DB)."""
+
+    async def test_should_count_all_when_force(self, monkeypatch):
+        """Given force, When counting, Then every entry counts (ignores dedup)."""
+        monkeypatch.setattr(
+            bench_service, "_load_models", lambda: _make_entries("a/x", "b/y")
+        )
+        assert await bench_service.pending_run_count(force=True, model_filter=None) == 2
+
+    async def test_should_count_only_undeduped(self, monkeypatch):
+        """Given all (model, engine) already on S3, When counting, Then 0."""
+        monkeypatch.setattr(
+            bench_service, "_load_models", lambda: _make_entries("a/x", "b/y")
+        )
+
+        async def _exists(model: str, engine) -> bool:
+            return True
+
+        monkeypatch.setattr(bench_service, "head_latest_meta", _exists)
+        assert (
+            await bench_service.pending_run_count(force=False, model_filter=None) == 0
+        )
+
+    async def test_should_respect_model_filter(self, monkeypatch):
+        """Given a filter, When counting, Then only matching entries are considered."""
+        monkeypatch.setattr(
+            bench_service, "_load_models", lambda: _make_entries("a/keep", "b/drop")
+        )
+        # no_s3_dedup fixture → all pending; filter narrows to one
+        assert await bench_service.pending_run_count(False, model_filter="keep") == 1
+
+
+class TestPublishCatalogs:
+    """publish_catalogs() uploads both derived catalogs without benchmarking."""
+
+    async def test_should_upload_both_catalogs(self, monkeypatch):
+        """Given models.yaml, When publish_catalogs, Then both uploads fire."""
+        calls: list[str] = []
+
+        async def _models(payload: str) -> str:
+            calls.append("models")
+            return "stub"
+
+        async def _scenarios(payload: str) -> str:
+            calls.append("scenarios")
+            return "stub"
+
+        monkeypatch.setattr(bench_service, "_load_models", lambda: _make_entries("a/x"))
+        monkeypatch.setattr(bench_service, "upload_models_catalog", _models)
+        monkeypatch.setattr(bench_service, "upload_scenarios_catalog", _scenarios)
+
+        await bench_service.publish_catalogs()
+
+        assert calls == ["models", "scenarios"]
+
+
 class TestSubmit:
     async def test_should_create_runs_for_all_models(
         self, session_factory, monkeypatch

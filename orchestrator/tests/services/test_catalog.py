@@ -78,6 +78,7 @@ class TestDisplayName:
             ("mistralai/Mixtral-8x7B-Instruct-v0.1", "Mixtral 8x7B"),
             ("google/gemma-2-27b-it", "gemma 2 27b"),
             ("bartowski/Qwen2.5-14B-Instruct-GGUF", "Qwen2.5 14B"),
+            ("meta-llama/Llama-3.1-8B-Base", "Llama 3.1 8B Base"),
         ],
     )
     def test_should_derive_readable_name(self, model, expected):
@@ -85,9 +86,14 @@ class TestDisplayName:
         catalog = build_models_catalog([_entry(model)])
         assert catalog[0]["display_name"] == expected
 
+    def test_should_fall_back_to_segment_when_fully_stripped(self):
+        """Given a name that is all noise tokens, Then keep the raw segment."""
+        catalog = build_models_catalog([_entry("x/Instruct")])
+        assert catalog[0]["display_name"] == "Instruct"
+
 
 class TestCategories:
-    """categories: editorial override wins, else a heuristic from the id."""
+    """categories: declared in models.yaml (default Dense) + automatic Quantized."""
 
     def test_should_use_editorial_categories_when_provided(self):
         """Given explicit categories, When built, Then they pass through verbatim."""
@@ -96,33 +102,37 @@ class TestCategories:
         )
         assert catalog[0]["categories"] == ["Reasoning", "MoE"]
 
-    @pytest.mark.parametrize(
-        "model, expected",
-        [
-            ("meta-llama/Llama-3.1-8B-Instruct", ["Dense"]),
-            ("mistralai/Mixtral-8x7B-Instruct", ["MoE"]),
-            ("Qwen/Qwen3-30B-A3B", ["MoE"]),
-            ("Qwen/QwQ-32B-Preview", ["Reasoning"]),
-            ("deepseek-ai/DeepSeek-R1", ["Reasoning"]),
-        ],
-    )
-    def test_should_derive_architecture_tag(self, model, expected):
-        """Given no editorial tags, When built, Then architecture is inferred."""
-        catalog = build_models_catalog([_entry(model)])
-        assert catalog[0]["categories"] == expected
+    def test_should_default_to_dense_when_omitted(self):
+        """Given no categories, When built, Then defaults to ["Dense"] (no guessing)."""
+        catalog = build_models_catalog([_entry("mistralai/Mixtral-8x7B-Instruct")])
+        assert catalog[0]["categories"] == ["Dense"]
 
-    def test_should_tag_quantized_for_gguf(self):
-        """Given a GGUF llamacpp entry, When built, Then Quantized is appended."""
+    def test_should_append_quantized_even_to_editorial_categories(self):
+        """Given editorial tags + a GGUF file, Then Quantized is still appended."""
         catalog = build_models_catalog(
             [
                 _entry(
-                    "bartowski/Mixtral-8x7B-GGUF",
+                    "x/Custom-Model",
                     engine="llamacpp",
-                    gguf_file="Mixtral-8x7B-Q4_K_M.gguf",
+                    gguf_file="Custom-Q4_K_M.gguf",
+                    categories=["Reasoning"],
                 )
             ]
         )
-        assert catalog[0]["categories"] == ["MoE", "Quantized"]
+        assert catalog[0]["categories"] == ["Reasoning", "Quantized"]
+
+    def test_should_tag_quantized_on_default_dense_for_gguf(self):
+        """Given a GGUF entry with no editorial tags, Then ["Dense", "Quantized"]."""
+        catalog = build_models_catalog(
+            [
+                _entry(
+                    "bartowski/Qwen2.5-14B-Instruct-GGUF",
+                    engine="llamacpp",
+                    gguf_file="Qwen2.5-14B-Instruct-Q4_K_M.gguf",
+                )
+            ]
+        )
+        assert catalog[0]["categories"] == ["Dense", "Quantized"]
 
 
 class TestBuildScenariosCatalog:

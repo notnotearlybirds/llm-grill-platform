@@ -29,3 +29,7 @@ setup-dev:
 .PHONY: test ## 🧪 test
 test: setup-dev
 	uv run pytest -v --cov=src --cov-report=html --cov-report=term
+
+.PHONY: publish-catalogs ## 📤 Derive + upload models.json/scenarios.json to S3 (no VM/GPU)
+publish-catalogs:
+	uv run python scripts/publish_catalogs.py

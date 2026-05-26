@@ -6,8 +6,8 @@ or scenarios/*.yaml from the repo. So we derive `models.json` and
 
 Almost everything is derived: `brand` from the HF org, `params_b` from
 `size_b`, `quantization` parsed from the GGUF filename, `display_name` cleaned
-from the HF id. The one optional editorial field is `categories` — when a
-models.yaml entry omits it, we fall back to a heuristic (see `_categories`).
+from the HF id. The one optional editorial field is `categories`, declared per
+entry in models.yaml (defaults to `["Dense"]` when omitted).
 """
 
 from __future__ import annotations
@@ -34,46 +34,41 @@ def _quantization(gguf_file: str | None) -> str | None:
     return match.group(0).upper() if match else None
 
 
-# Instruct/chat/format suffixes stripped when deriving a human display name.
-_NAME_NOISE_RE = re.compile(
-    r"-(?:instruct|it|chat|hf|gguf|preview|base|v\d+(?:\.\d+)*)$", re.IGNORECASE
-)
-_MOE_RE = re.compile(r"mixtral|\bmoe\b|a\d+b|\d+x\d+b", re.IGNORECASE)
-_REASONING_RE = re.compile(
-    r"qwq|deepseek-?r\d|[-/]r\d\b|\bo\d\b|reasoning", re.IGNORECASE
-)
+# Trailing tokens dropped when deriving a human display name. We keep "base"
+# so base vs instruct/finetuned variants stay distinguishable.
+_NAME_NOISE = {"instruct", "it", "chat", "hf", "gguf", "preview"}
+
+
+def _is_version_token(token: str) -> bool:
+    """True for version tags like "v0.3" or "v2" (dropped from display names)."""
+    return token[:1].lower() == "v" and token[1:].replace(".", "").isdigit()
 
 
 def _display_name(model: str) -> str:
-    """Best-effort human name from an HF id: strip org + instruct/format suffixes.
+    """Human name from an HF id: drop the org and trailing format/instruct tokens.
 
-    e.g. "Qwen/Qwen2.5-14B-Instruct" -> "Qwen2.5 14B". Deterministic, not
-    hand-curated; an editorial name could override this later if needed.
+    e.g. "Qwen/Qwen2.5-14B-Instruct" -> "Qwen2.5 14B". Best-effort and
+    deterministic; an editorial name could override this later if needed.
+    Falls back to the raw segment if stripping leaves nothing.
     """
-    name = model.split("/")[-1]
-    prev = None
-    while prev != name:
-        prev = name
-        name = _NAME_NOISE_RE.sub("", name)
-    return name.replace("-", " ").replace("_", " ").strip()
+    segment = model.split("/")[-1] or model
+    tokens = segment.replace("_", "-").split("-")
+    while tokens and (
+        tokens[-1].lower() in _NAME_NOISE or _is_version_token(tokens[-1])
+    ):
+        tokens.pop()
+    return " ".join(tokens).strip() or segment
 
 
 def _categories(entry: ModelEntry) -> list[str]:
-    """Editorial categories if provided, else a heuristic from the model id.
+    """Editorial categories declared in models.yaml (default `["Dense"]`), plus
+    an automatic `Quantized` tag for GGUF/quantized runs.
 
-    Architecture tag (Dense default, MoE/Reasoning when matched) plus a
-    `Quantized` tag for GGUF/quantized runs. Surfaced as frontend filters.
+    Architecture tags (MoE/Reasoning) are *declared*, not guessed: string
+    matching on model ids is too fragile to classify silently. Frontend filters.
     """
-    if entry.categories is not None:
-        return entry.categories
-    tags: list[str] = []
-    if _MOE_RE.search(entry.model):
-        tags.append("MoE")
-    if _REASONING_RE.search(entry.model):
-        tags.append("Reasoning")
-    if not tags:
-        tags.append("Dense")
-    if _quantization(entry.gguf_file) is not None:
+    tags = list(entry.categories) if entry.categories is not None else ["Dense"]
+    if _quantization(entry.gguf_file) is not None and "Quantized" not in tags:
         tags.append("Quantized")
     return tags
 

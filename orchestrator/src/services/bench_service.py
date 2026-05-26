@@ -73,6 +73,32 @@ async def _publish_catalogs(entries: list[ModelEntry]) -> None:
     )
 
 
+async def publish_catalogs() -> None:
+    """Derive + publish models.json and scenarios.json to S3, no benchmarking.
+
+    Entry point for the lightweight `publish-catalogs` CI job: catalogs are pure
+    functions of models.yaml / scenarios/*.yaml, so they refresh without a VM.
+    """
+    await _publish_catalogs(_load_models())
+
+
+async def pending_run_count(force: bool, model_filter: str | None) -> int:
+    """How many (model, engine) entries would actually be benched.
+
+    Mirrors `submit`'s S3 dedup without touching the DB, so CI can decide
+    whether provisioning a VM is worth it. `force` counts everything.
+    """
+    entries = _load_models()
+    if model_filter:
+        entries = [e for e in entries if model_filter.lower() in e.model.lower()]
+    if force:
+        return len(entries)
+    flags = await asyncio.gather(
+        *(head_latest_meta(e.model, Engine(e.engine)) for e in entries)
+    )
+    return sum(1 for has_meta in flags if not has_meta)
+
+
 async def submit(force: bool = False, model_filter: str | None = None) -> dict:
     entries = _load_models()
     await _publish_catalogs(entries)
