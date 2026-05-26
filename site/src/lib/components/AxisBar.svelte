@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { SELECTABLE_METRICS, CONCURRENCY_LEVELS } from '$lib/metrics';
+	import { SELECTABLE_METRICS, CONCURRENCY_LEVELS, type MetricKey } from '$lib/metrics';
 	import type { ConcurrencyLevel } from '$lib/types';
 
 	let {
@@ -10,11 +10,11 @@
 		onY,
 		onConcurrency
 	}: {
-		xKey: string;
-		yKey: string;
+		xKey: MetricKey;
+		yKey: MetricKey;
 		concurrency: ConcurrencyLevel;
-		onX: (k: string) => void;
-		onY: (k: string) => void;
+		onX: (k: MetricKey) => void;
+		onY: (k: MetricKey) => void;
 		onConcurrency: (c: ConcurrencyLevel) => void;
 	} = $props();
 
@@ -24,7 +24,7 @@
 <section class="axes">
 	<label class="axis-select">
 		<span class="axis-label">X</span>
-		<select value={xKey} onchange={(e) => onX(e.currentTarget.value)}>
+		<select value={xKey} onchange={(e) => onX(e.currentTarget.value as MetricKey)}>
 			{#each SELECTABLE_METRICS as m (m.key)}
 				<option value={m.key}>{m.label}</option>
 			{/each}
@@ -36,7 +36,7 @@
 
 	<label class="axis-select">
 		<span class="axis-label">Y</span>
-		<select value={yKey} onchange={(e) => onY(e.currentTarget.value)}>
+		<select value={yKey} onchange={(e) => onY(e.currentTarget.value as MetricKey)}>
 			{#each SELECTABLE_METRICS as m (m.key)}
 				<option value={m.key}>{m.label}</option>
 			{/each}

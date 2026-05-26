@@ -7,15 +7,21 @@
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Footer from '$lib/components/Footer.svelte';
 	import { fetchCatalogs, buildView, splitByEngine, type Catalogs } from '$lib/data';
+	import type { MetricKey } from '$lib/metrics';
 	import type { ConcurrencyLevel, ViewRow } from '$lib/types';
 
 	const CATEGORY_ORDER = ['Reasoning', 'MoE', 'Dense', 'Quantized'];
+	// Unknown categories sort after the known set (not before, as indexOf -1 would).
+	const catRank = (c: string) => {
+		const i = CATEGORY_ORDER.indexOf(c);
+		return i === -1 ? CATEGORY_ORDER.length : i;
+	};
 
 	let catalogs = $state<Catalogs | null>(null);
 	let error = $state<string | null>(null);
 
-	let xKey = $state('tokens_per_sec');
-	let yKey = $state('ttft_mean');
+	let xKey = $state<MetricKey>('tokens_per_sec');
+	let yKey = $state<MetricKey>('ttft_mean');
 	let concurrency = $state<ConcurrencyLevel>(8);
 	let activeCats = $state(new Set<string>());
 	let activeBrands = $state(new Set<string>());
@@ -46,9 +52,7 @@
 
 	const models = $derived(catalogs?.models ?? []);
 	const categories = $derived(
-		[...new Set(models.flatMap((m) => m.categories))].sort(
-			(a, b) => CATEGORY_ORDER.indexOf(a) - CATEGORY_ORDER.indexOf(b)
-		)
+		[...new Set(models.flatMap((m) => m.categories))].sort((a, b) => catRank(a) - catRank(b))
 	);
 	const brands = $derived([...new Set(models.map((m) => m.brand))].sort());
 

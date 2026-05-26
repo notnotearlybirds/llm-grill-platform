@@ -31,8 +31,12 @@
 		onClearPins: () => void;
 	} = $props();
 
-	const catCount = (c: string) => modelsMeta.filter((m) => m.categories.includes(c)).length;
-	const brandCount = (b: string) => modelsMeta.filter((m) => m.brand === b).length;
+	// Count distinct models (a model present on both engines must not count twice),
+	// so pill counts line up with the de-duplicated `totalModels` header stat.
+	const distinctModels = (rows: ModelMeta[]) => new Set(rows.map((m) => m.model)).size;
+	const catCount = (c: string) =>
+		distinctModels(modelsMeta.filter((m) => m.categories.includes(c)));
+	const brandCount = (b: string) => distinctModels(modelsMeta.filter((m) => m.brand === b));
 </script>
 
 <section class="filters">

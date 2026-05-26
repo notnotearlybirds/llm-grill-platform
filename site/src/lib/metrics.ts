@@ -2,8 +2,23 @@
 // Ported from the mockup's data.js, minus tpot_p95 / e2e_p50 which the backend
 // (llm_grill AggregatedMetrics) does not expose.
 
+/** Numeric axis keys — all present on ViewRow as numbers, so indexing is safe. */
+export type MetricKey =
+	| 'concurrency'
+	| 'ttft_mean'
+	| 'ttft_p95'
+	| 'ttft_p50'
+	| 'tpot_mean'
+	| 'e2e_mean'
+	| 'e2e_p95'
+	| 'tokens_per_sec'
+	| 'total_tokens_per_sec'
+	| 'success_rate'
+	| 'n_requests'
+	| 'params_b';
+
 export interface Metric {
-	key: string;
+	key: MetricKey;
 	label: string;
 	unit: string;
 	lowerIsBetter: boolean;

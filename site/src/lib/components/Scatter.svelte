@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { flattenPoint, perConcurrency } from '$lib/data';
-	import { METRICS, formatTick } from '$lib/metrics';
+	import { METRICS, formatTick, type MetricKey } from '$lib/metrics';
 	import { paddedDomain, linear, ticksFor, colorScale, radius } from '$lib/scales';
 	import type { ViewRow } from '$lib/types';
 
@@ -22,10 +22,10 @@
 		trails = false
 	}: {
 		data: ViewRow[];
-		xKey: string;
-		yKey: string;
-		sizeKey?: string;
-		colorKey?: string;
+		xKey: MetricKey;
+		yKey: MetricKey;
+		sizeKey?: MetricKey;
+		colorKey?: MetricKey;
 		width: number;
 		height: number;
 		pinned: Set<string>;
@@ -42,7 +42,7 @@
 	const iw = $derived(width - padding.left - padding.right);
 	const ih = $derived(height - padding.top - padding.bottom);
 
-	const val = (d: Record<string, number>, key: string): number => d[key];
+	const val = (d: ViewRow, key: MetricKey): number => d[key];
 
 	const xMetric = $derived(METRICS.find((m) => m.key === xKey));
 	const yMetric = $derived(METRICS.find((m) => m.key === yKey));
@@ -51,9 +51,9 @@
 	const allPoints = $derived(
 		(() => {
 			const out = data.map((d) => ({
-				x: val(d as never, xKey),
-				y: val(d as never, yKey),
-				s: val(d as never, sizeKey)
+				x: val(d, xKey),
+				y: val(d, yKey),
+				s: val(d, sizeKey)
 			}));
 			if (trails) {
 				for (const d of data) {
@@ -83,7 +83,7 @@
 	const points = $derived(
 		data.filter(
 			(d) =>
-				Number.isFinite(val(d as never, xKey)) && Number.isFinite(val(d as never, yKey))
+				Number.isFinite(val(d, xKey)) && Number.isFinite(val(d, yKey))
 		)
 	);
 
@@ -92,7 +92,7 @@
 	// the curve points carry the chart, so fall back to the full point set.
 	const noMarks = $derived(trails ? allPoints.length === 0 : points.length === 0);
 
-	const r = (d: ViewRow) => radius(val(d as never, sizeKey), sMin, sMax, pointScale);
+	const r = (d: ViewRow) => radius(val(d, sizeKey), sMin, sMax, pointScale);
 	const isActive = (id: string) => hovered === id || pinned.has(id);
 	const isDim = (id: string) => (pinned.size > 0 || hovered != null) && !isActive(id);
 
@@ -165,10 +165,10 @@
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
 				<!-- Data points are mouse/touch driven; hover surfaces the same info as click-to-pin. -->
 				<circle
-					cx={xScale(val(d as never, xKey))}
-					cy={yScale(val(d as never, yKey))}
+					cx={xScale(val(d, xKey))}
+					cy={yScale(val(d, yKey))}
 					r={r(d)}
-					fill={colorScale(val(d as never, colorKey))}
+					fill={colorScale(val(d, colorKey))}
 					fill-opacity={isActive(d.id) ? 0.95 : 0.72}
 					stroke={isActive(d.id) ? 'var(--text)' : 'var(--point-stroke)'}
 					stroke-width={isActive(d.id) ? 1.5 : 1}
@@ -182,8 +182,8 @@
 				/>
 				{#if isActive(d.id)}
 					<text
-						x={xScale(val(d as never, xKey)) + r(d) + 6}
-						y={yScale(val(d as never, yKey)) + 3}
+						x={xScale(val(d, xKey)) + r(d) + 6}
+						y={yScale(val(d, yKey)) + 3}
 						fill="var(--text)"
 						font-size="10.5"
 						font-family="var(--mono)"
