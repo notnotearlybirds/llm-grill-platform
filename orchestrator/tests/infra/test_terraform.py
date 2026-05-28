@@ -36,14 +36,15 @@ class TestClassify:
     def test_should_flag_auth(self):
         assert isinstance(_classify("invalid secret key"), ScalewayAuthError)
 
-    def test_should_flag_server_start_failure_as_retryable(self):
+    @pytest.mark.parametrize("found_state", ["stopped", "error", "locked"])
+    def test_should_flag_server_start_failure_as_retryable(self, found_state):
         """
-        Given: the provider wait failure "expected state running but found stopped"
+        Given: the provider wait failure "expected state running but found <state>"
         When:  classified
         Then:  it's a ServerStartError (retryable), not a bare TerraformError
         """
         stderr = (
-            "Error: scaleway-sdk-go: expected state running but found stopped:\n"
+            f"Error: scaleway-sdk-go: expected state running but found {found_state}:\n"
             '  with scaleway_instance_server.gpu,'
         )
         err = _classify(stderr)
