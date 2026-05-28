@@ -111,7 +111,6 @@ export function flattenPoint(p: ConcurrencyPoint) {
 		e2e_p95: Math.round(p.e2e_p95_s * 1000),
 		tokens_per_sec: p.tokens_per_second_mean,
 		total_tokens_per_sec: p.total_tokens_per_second,
-		requests_per_sec: p.requests_per_second,
 		success_rate: p.success_rate,
 		n_requests: p.n_requests
 	};
@@ -137,13 +136,11 @@ export function buildView(
 			engine: row.engine,
 			name: meta?.display_name ?? row.model.split('/').pop() ?? row.model,
 			brand: meta?.brand ?? row.model.split('/')[0],
-			params: meta?.params_b ?? 0,
 			params_b: meta?.params_b ?? 0,
 			categories: meta?.categories ?? [],
 			quantization: meta?.quantization ?? null,
 			hardware: hardwareFor(row.gpu_type),
 			_row: row,
-			_meta: meta,
 			...flat
 		};
 	});

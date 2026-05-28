@@ -77,7 +77,6 @@ export interface ViewRow {
 	engine: string;
 	name: string;
 	brand: string;
-	params: number;
 	categories: string[];
 	quantization: string | null;
 	hardware: Hardware;
@@ -90,12 +89,10 @@ export interface ViewRow {
 	e2e_p95: number;
 	tokens_per_sec: number;
 	total_tokens_per_sec: number;
-	requests_per_sec: number;
 	success_rate: number;
 	n_requests: number;
 	params_b: number;
 	_row: LeaderboardRow;
-	_meta: ModelMeta | undefined;
 }
 
 /** Either "agg" (the row's flat aggregate) or a numeric ramp level. */
