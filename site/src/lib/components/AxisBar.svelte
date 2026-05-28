@@ -1,31 +1,38 @@
 <script lang="ts">
-	import { SELECTABLE_METRICS, CONCURRENCY_LEVELS, type MetricKey } from '$lib/metrics';
+	import { METRICS, SELECTABLE_METRICS, CONCURRENCY_LEVELS, type MetricKey } from '$lib/metrics';
 	import type { ConcurrencyLevel } from '$lib/types';
 
 	let {
 		xKey,
 		yKey,
 		concurrency,
+		trails,
 		onX,
 		onY,
-		onConcurrency
+		onConcurrency,
+		onTrails
 	}: {
 		xKey: MetricKey;
 		yKey: MetricKey;
 		concurrency: ConcurrencyLevel;
+		trails: boolean;
 		onX: (k: MetricKey) => void;
 		onY: (k: MetricKey) => void;
 		onConcurrency: (c: ConcurrencyLevel) => void;
+		onTrails: (on: boolean) => void;
 	} = $props();
 
 	const levels: ConcurrencyLevel[] = ['agg', ...CONCURRENCY_LEVELS];
+	// In trails mode the X axis can be the ramp level itself (concurrency), so the
+	// trailsOnly metrics become selectable.
+	const axisMetrics = $derived(trails ? METRICS : SELECTABLE_METRICS);
 </script>
 
 <section class="axes">
 	<label class="axis-select">
 		<span class="axis-label">X</span>
 		<select value={xKey} onchange={(e) => onX(e.currentTarget.value as MetricKey)}>
-			{#each SELECTABLE_METRICS as m (m.key)}
+			{#each axisMetrics as m (m.key)}
 				<option value={m.key}>{m.label}</option>
 			{/each}
 		</select>
@@ -37,7 +44,7 @@
 	<label class="axis-select">
 		<span class="axis-label">Y</span>
 		<select value={yKey} onchange={(e) => onY(e.currentTarget.value as MetricKey)}>
-			{#each SELECTABLE_METRICS as m (m.key)}
+			{#each axisMetrics as m (m.key)}
 				<option value={m.key}>{m.label}</option>
 			{/each}
 		</select>
@@ -46,16 +53,26 @@
 		>
 	</label>
 
-	<div class="conc-select" title="Pick the concurrency level to display">
-		<span class="axis-label">Concurrency</span>
+	<div class="conc-select" title="Snapshot = one ramp level per point; Trails = the load curve per model">
+		<span class="axis-label">Mode</span>
 		<div class="conc-track">
-			{#each levels as l (l)}
-				<button class="conc-btn" class:conc-on={concurrency === l} onclick={() => onConcurrency(l)}>
-					{l === 'agg' ? 'all' : l}
-				</button>
-			{/each}
+			<button class="conc-btn" class:conc-on={!trails} onclick={() => onTrails(false)}>snapshot</button>
+			<button class="conc-btn" class:conc-on={trails} onclick={() => onTrails(true)}>trails</button>
 		</div>
 	</div>
+
+	{#if !trails}
+		<div class="conc-select" title="Pick the concurrency level to display">
+			<span class="axis-label">Concurrency</span>
+			<div class="conc-track">
+				{#each levels as l (l)}
+					<button class="conc-btn" class:conc-on={concurrency === l} onclick={() => onConcurrency(l)}>
+						{l === 'agg' ? 'all' : l}
+					</button>
+				{/each}
+			</div>
+		</div>
+	{/if}
 
 	<div class="encoding">
 		<span class="enc-item">

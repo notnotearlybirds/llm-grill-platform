@@ -140,8 +140,15 @@ const scenarios = [
 	}
 ];
 
+// Ordered engine catalog (mirrors the backend Engine enum / build_engines_catalog).
+const engines = [
+	{ id: 'vllm', label: 'vLLM' },
+	{ id: 'llamacpp', label: 'llama.cpp' }
+];
+
 mkdirSync(OUT, { recursive: true });
 writeFileSync(join(OUT, 'leaderboard.json'), JSON.stringify(leaderboard, null, 2));
 writeFileSync(join(OUT, 'models.json'), JSON.stringify(modelsCatalog, null, 2));
 writeFileSync(join(OUT, 'scenarios.json'), JSON.stringify(scenarios, null, 2));
+writeFileSync(join(OUT, 'engines.json'), JSON.stringify(engines, null, 2));
 console.log(`wrote ${leaderboard.length} leaderboard rows to ${OUT}`);

@@ -18,6 +18,7 @@ _SCW_ENDPOINT = f"https://s3.{settings.scw_region}.scw.cloud"
 _LEADERBOARD_KEY = "leaderboard.json"
 _MODELS_KEY = "models.json"
 _SCENARIOS_KEY = "scenarios.json"
+_ENGINES_KEY = "engines.json"
 
 # Error codes S3 (AWS or Scaleway) returns for a missing object. head_object
 # yields "404"/"NotFound" (no modeled exception), get_object yields "NoSuchKey".
@@ -273,6 +274,11 @@ async def upload_models_catalog(payload: str) -> str:
 async def upload_scenarios_catalog(payload: str) -> str:
     """Write the derived scenarios.json (load shapes) at the bucket root."""
     return await _upload_public_json(_SCENARIOS_KEY, payload)
+
+
+async def upload_engines_catalog(payload: str) -> str:
+    """Write the engines.json (id + display label, ordered) at the bucket root."""
+    return await _upload_public_json(_ENGINES_KEY, payload)
 
 
 async def fetch_leaderboard() -> bytes | None:

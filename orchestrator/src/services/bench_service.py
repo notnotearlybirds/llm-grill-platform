@@ -8,7 +8,11 @@ from huggingface_hub import HfApi
 from huggingface_hub.utils import RepositoryNotFoundError
 from pydantic import BaseModel, field_validator
 
-from src.catalog import build_models_catalog, build_scenarios_catalog
+from src.catalog import (
+    build_engines_catalog,
+    build_models_catalog,
+    build_scenarios_catalog,
+)
 from src.config import settings
 from src.models import ACTIVE_RUN_STATUSES, Engine
 from src.repositories.run_repository import RunRepository
@@ -16,6 +20,7 @@ from src.schemas import RunCreate
 from src.services.run_service import RunService
 from src.storage import (
     head_latest_meta,
+    upload_engines_catalog,
     upload_models_catalog,
     upload_scenarios_catalog,
 )
@@ -85,6 +90,7 @@ async def _publish_catalogs(entries: list[ModelEntry]) -> None:
     await upload_scenarios_catalog(
         json.dumps(build_scenarios_catalog(settings.scenarios_root))
     )
+    await upload_engines_catalog(json.dumps(build_engines_catalog()))
 
 
 async def publish_catalogs() -> None:

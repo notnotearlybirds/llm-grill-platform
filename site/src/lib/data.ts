@@ -5,6 +5,7 @@ import { GPU_VRAM_GB } from './metrics';
 import type {
 	ConcurrencyLevel,
 	ConcurrencyPoint,
+	EngineMeta,
 	Hardware,
 	LeaderboardRow,
 	ModelMeta,
@@ -20,6 +21,7 @@ export interface Catalogs {
 	leaderboard: LeaderboardRow[];
 	models: ModelMeta[];
 	scenarios: Scenario[];
+	engines: EngineMeta[];
 }
 
 async function getJson<T>(file: string): Promise<T> {
@@ -29,12 +31,13 @@ async function getJson<T>(file: string): Promise<T> {
 }
 
 export async function fetchCatalogs(): Promise<Catalogs> {
-	const [leaderboard, models, scenarios] = await Promise.all([
+	const [leaderboard, models, scenarios, engines] = await Promise.all([
 		getJson<LeaderboardRow[]>('leaderboard.json'),
 		getJson<ModelMeta[]>('models.json'),
-		getJson<Scenario[]>('scenarios.json')
+		getJson<Scenario[]>('scenarios.json'),
+		getJson<EngineMeta[]>('engines.json')
 	]);
-	return { leaderboard, models, scenarios };
+	return { leaderboard, models, scenarios, engines };
 }
 
 function hardwareFor(gpuType: string): Hardware {
@@ -120,9 +123,12 @@ export function buildView(
 	});
 }
 
-export function splitByEngine(rows: ViewRow[]): { vllm: ViewRow[]; llamacpp: ViewRow[] } {
-	return {
-		vllm: rows.filter((r) => r.engine === 'vllm'),
-		llamacpp: rows.filter((r) => r.engine === 'llamacpp')
-	};
+/** Subtitle for an engine column, derived from its rows (no hardcoded GPU/quant).
+ *  e.g. "1×L40S · Q4_K_M", "1×H100", or "" when nothing is known. */
+export function engineSub(rows: ViewRow[]): string {
+	const gpus = [...new Set(rows.map((r) => r.hardware.type).filter(Boolean))];
+	const quants = [...new Set(rows.map((r) => r.quantization).filter((q): q is string => !!q))];
+	const gpuPart = gpus.length === 1 ? `1×${gpus[0]}` : gpus.length > 1 ? `${gpus.length} GPU types` : '';
+	const quantPart = quants.length === 1 ? quants[0] : '';
+	return [gpuPart, quantPart].filter(Boolean).join(' · ');
 }

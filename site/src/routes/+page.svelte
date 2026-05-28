@@ -6,7 +6,7 @@
 	import Scatter from '$lib/components/Scatter.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Footer from '$lib/components/Footer.svelte';
-	import { fetchCatalogs, buildView, splitByEngine, type Catalogs } from '$lib/data';
+	import { fetchCatalogs, buildView, engineSub, type Catalogs } from '$lib/data';
 	import type { MetricKey } from '$lib/metrics';
 	import type { ConcurrencyLevel, ViewRow } from '$lib/types';
 
@@ -23,14 +23,23 @@
 	let xKey = $state<MetricKey>('tokens_per_sec');
 	let yKey = $state<MetricKey>('ttft_mean');
 	let concurrency = $state<ConcurrencyLevel>(8);
+	let trails = $state(false);
+
+	function setTrails(on: boolean) {
+		trails = on;
+		// Trails put the ramp level on X (the defining axis of a load curve); X/Y stay
+		// freely editable via the selectors afterwards.
+		if (on) xKey = 'concurrency';
+		// Leaving trails: concurrency is a trailsOnly X axis, so reset to a snapshot default.
+		else if (xKey === 'concurrency') xKey = 'tokens_per_sec';
+	}
 	let activeCats = $state(new Set<string>());
 	let activeBrands = $state(new Set<string>());
 	let search = $state('');
 	let pinned = $state(new Set<string>());
 	let hovered = $state<string | null>(null);
 
-	let chartW = $state(720);
-	let chartH = $state(520);
+	let containerW = $state(1456);
 	let chartsEl = $state<HTMLElement | undefined>(undefined);
 
 	onMount(() => {
@@ -39,12 +48,7 @@
 			.catch((e) => (error = e instanceof Error ? e.message : String(e)));
 
 		const ro = new ResizeObserver((entries) => {
-			for (const e of entries) {
-				const w = e.contentRect.width;
-				const single = (w - 16) / 2;
-				chartW = Math.floor(single);
-				chartH = Math.floor(Math.max(360, Math.min(620, single * 0.72)));
-			}
+			for (const e of entries) containerW = e.contentRect.width;
 		});
 		if (chartsEl) ro.observe(chartsEl);
 		return () => ro.disconnect();
@@ -71,15 +75,37 @@
 	}
 
 	const filtered = $derived(view.filter(matches));
-	const byEngine = $derived(splitByEngine(filtered));
 	const totalModels = $derived(new Set(models.map((m) => m.model)).size);
 	const visibleModels = $derived(new Set(filtered.map((r) => r.model)).size);
 
-	const focused = $derived(
+	// Engine columns are driven by engines.json (label + order from the backend Engine
+	// enum) — no hardcoded vllm/llamacpp here. Subtitle (GPU/quant) is derived per group
+	// from the actual rows, since the backend doesn't know the GPU until runs complete.
+	const engineGroups = $derived(
+		(catalogs?.engines ?? []).map((e) => ({
+			engine: e.id,
+			label: e.label,
+			rows: filtered.filter((r) => r.engine === e.id),
+			sub: engineSub(view.filter((r) => r.engine === e.id))
+		}))
+	);
+
+	// One column per engine (capped at 3 so charts stay legible), sized from the
+	// observed container width.
+	const GAP = 16;
+	const cols = $derived(Math.min(Math.max(engineGroups.length, 1), 3));
+	const chartW = $derived(Math.floor((containerW - GAP * (cols - 1)) / cols));
+	const chartH = $derived(Math.floor(Math.max(360, Math.min(620, chartW * 0.72))));
+
+	// Tooltip(s): the hovered row wins; otherwise show every pinned row so two models
+	// can be compared side by side (single-pin gave no comparison before).
+	const tooltipRows = $derived(
 		(() => {
-			if (hovered) return filtered.find((r) => r.id === hovered) ?? null;
-			if (pinned.size === 1) return filtered.find((r) => r.id === [...pinned][0]) ?? null;
-			return null;
+			if (hovered) {
+				const r = filtered.find((x) => x.id === hovered);
+				return r ? [r] : [];
+			}
+			return [...pinned].map((id) => filtered.find((x) => x.id === id)).filter((r): r is ViewRow => !!r);
 		})()
 	);
 
@@ -134,54 +160,44 @@
 			{xKey}
 			{yKey}
 			{concurrency}
+			{trails}
 			onX={(k) => (xKey = k)}
 			onY={(k) => (yKey = k)}
 			onConcurrency={(c) => (concurrency = c)}
+			onTrails={setTrails}
 		/>
 
-		<section class="charts" bind:this={chartsEl}>
-			<div class="chart-card">
-				<div class="chart-head">
-					<span class="chart-title">vLLM</span>
-					<span class="chart-sub">1×H100 · bf16</span>
-					<span class="chart-count">{byEngine.vllm.length} pts</span>
+		<section class="charts" bind:this={chartsEl} style="grid-template-columns: repeat({cols}, 1fr)">
+			{#each engineGroups as g (g.engine)}
+				<div class="chart-card">
+					<div class="chart-head">
+						<span class="chart-title">{g.label}</span>
+						{#if g.sub}<span class="chart-sub">{g.sub}</span>{/if}
+						<span class="chart-count">{g.rows.length} pts</span>
+					</div>
+					<Scatter
+						data={g.rows}
+						{xKey}
+						{yKey}
+						{trails}
+						width={chartW}
+						height={chartH}
+						{pinned}
+						{hovered}
+						onHover={(id) => (hovered = id)}
+						{onPin}
+						label={trails
+							? `${g.label} · load curve`
+							: `${g.label} · concurrency = ${concLabel}`}
+					/>
 				</div>
-				<Scatter
-					data={byEngine.vllm}
-					{xKey}
-					{yKey}
-					width={chartW}
-					height={chartH}
-					{pinned}
-					{hovered}
-					onHover={(id) => (hovered = id)}
-					{onPin}
-					label={`vllm · concurrency = ${concLabel}`}
-				/>
-			</div>
-			<div class="chart-card">
-				<div class="chart-head">
-					<span class="chart-title">llama.cpp</span>
-					<span class="chart-sub">1×L40S · Q4_K_M</span>
-					<span class="chart-count">{byEngine.llamacpp.length} pts</span>
-				</div>
-				<Scatter
-					data={byEngine.llamacpp}
-					{xKey}
-					{yKey}
-					width={chartW}
-					height={chartH}
-					{pinned}
-					{hovered}
-					onHover={(id) => (hovered = id)}
-					{onPin}
-					label={`llama.cpp · concurrency = ${concLabel}`}
-				/>
-			</div>
+			{/each}
 
-			{#if focused}
+			{#if tooltipRows.length}
 				<div class="tooltip-wrap">
-					<Tooltip row={focused} {concurrency} />
+					{#each tooltipRows as row (row.id)}
+						<Tooltip {row} {concurrency} />
+					{/each}
 				</div>
 			{/if}
 		</section>

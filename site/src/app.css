@@ -4,7 +4,7 @@
 
 :root,
 [data-theme='dark'] {
-	--sans: 'Geist', system-ui, sans-serif;
+	--sans: 'Geist Sans', system-ui, sans-serif;
 	--mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 	--bg: #0a0a0a;
 	--bg-1: #101010;
@@ -467,6 +467,11 @@ select {
 	right: 36px;
 	z-index: 10;
 	pointer-events: none;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	max-height: calc(100% - 48px);
+	overflow-y: auto;
 }
 
 /* Overlay layout */

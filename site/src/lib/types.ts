@@ -101,3 +101,9 @@ export interface ViewRow {
 
 /** Either "agg" (the row's flat aggregate) or a numeric ramp level. */
 export type ConcurrencyLevel = 'agg' | number;
+
+/** A row of engines.json — id + display label, ordered by the backend Engine enum. */
+export interface EngineMeta {
+	id: string;
+	label: string;
+}

@@ -19,8 +19,27 @@ from typing import TYPE_CHECKING
 import yaml
 from loguru import logger
 
+from src.models import Engine
+
 if TYPE_CHECKING:
     from src.services.bench_service import ModelEntry
+
+# Display labels for engines — the single source of truth the frontend reads
+# (engines.json) instead of hardcoding "vLLM"/"llama.cpp". Column order on the
+# front follows the Engine enum declaration order.
+_ENGINE_LABELS: dict[str, str] = {
+    Engine.vllm.value: "vLLM",
+    Engine.llamacpp.value: "llama.cpp",
+}
+
+
+def build_engines_catalog() -> list[dict]:
+    """Ordered engine catalog (id + display label) for the static frontend.
+
+    Order follows the `Engine` enum declaration; the front uses it for column
+    order and labels, so adding an engine here surfaces it without a front change.
+    """
+    return [{"id": e.value, "label": _ENGINE_LABELS.get(e.value, e.value)} for e in Engine]
 
 # GGUF quant tag, e.g. Q4_K_M, Q5_K_S, Q8_0, IQ4_XS, BF16, F16 in a filename
 # like "Qwen2.5-14B-Instruct-Q4_K_M.gguf".

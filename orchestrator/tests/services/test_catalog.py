@@ -4,7 +4,11 @@ from typing import Literal
 
 import pytest
 
-from src.catalog import build_models_catalog, build_scenarios_catalog
+from src.catalog import (
+    build_engines_catalog,
+    build_models_catalog,
+    build_scenarios_catalog,
+)
 from src.services.bench_service import ModelEntry
 
 
@@ -244,3 +248,18 @@ class TestBuildScenariosCatalog:
         catalog = build_scenarios_catalog(tmp_path)
 
         assert [s["name"] for s in catalog] == ["ramp"]
+
+
+class TestBuildEnginesCatalog:
+    def test_should_expose_each_engine_with_label_in_enum_order(self):
+        """
+        Given: the Engine enum (vllm, llamacpp)
+        When: the engines catalog is built
+        Then: each engine appears once, labelled, in declaration order
+        """
+        catalog = build_engines_catalog()
+
+        assert catalog == [
+            {"id": "vllm", "label": "vLLM"},
+            {"id": "llamacpp", "label": "llama.cpp"},
+        ]

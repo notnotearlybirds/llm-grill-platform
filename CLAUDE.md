@@ -211,17 +211,19 @@ aws s3 rm "s3://${SCW_BUCKET}/results/<slug>/<engine>/latest.meta.json" \
 
 ### Public S3 artifacts (consumed by the static frontend)
 
-The orchestrator publishes three public-read JSON files at the bucket root. The front never reads `models.yaml` / `scenarios/*.yaml` directly — it fetches these. Full shapes are typed in `site/src/lib/types.ts` (the frontend's data contract).
+The orchestrator publishes four public-read JSON files at the bucket root. The front never reads `models.yaml` / `scenarios/*.yaml` directly — it fetches these. Full shapes are typed in `site/src/lib/types.ts` (the frontend's data contract).
 
 | File | Written by | When |
 |---|---|---|
 | `leaderboard.json` | `storage.update_leaderboard_for` | incrementally on each successful run completion |
 | `models.json` | `storage.upload_models_catalog` | on each `POST /bench` **and** the `publish-catalogs` job (models.yaml change), derived from `models.yaml` |
 | `scenarios.json` | `storage.upload_scenarios_catalog` | on each `POST /bench` **and** the `publish-catalogs` job (scenarios/** change), derived from all `scenarios/*.yaml` |
+| `engines.json` | `storage.upload_engines_catalog` | on each `POST /bench` **and** the `publish-catalogs` job, derived from the `Engine` enum |
 
 - `leaderboard.json` rows carry per-`(model, engine)` aggregates **plus** a `per_concurrency` breakdown (TTFT/TPOT/throughput per ramp level — the load curve, not just the collapsed mean).
 - `models.json` is mostly **derived**: `brand` = HF org, `params_b` = `size_b`, `quantization` parsed from `gguf_file` (or `null`), `display_name` cleaned from the HF id. `categories` (`Reasoning|MoE|Dense|Quantized`, frontend filters) is the one **declared editorial** field on a `models.yaml` entry — defaults to `["Dense"]` when omitted (architecture tags are declared, not guessed); `Quantized` is appended automatically for GGUF runs.
 - `scenarios.json` is **directory-discovered**: drop a new `scenarios/*.yaml` and it surfaces on the next bench, no code change.
+- `engines.json` is the ordered `[{id, label}]` list **derived from the `Engine` enum** (`catalog.build_engines_catalog`): the single source of truth for engine display labels (`vLLM`/`llama.cpp`) and chart-column order. The front reads it instead of hardcoding engine names — add an engine to the enum and it surfaces with no frontend change.
 
 ---
 

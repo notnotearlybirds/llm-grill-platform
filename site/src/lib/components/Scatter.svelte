@@ -110,6 +110,14 @@
 			return [xScale(m[xKey]), yScale(m[yKey])];
 		});
 	}
+
+	// Keyboard equivalent of click-to-pin, so the chart is reachable without a mouse.
+	function onKey(e: KeyboardEvent, id: string) {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			onPin(id);
+		}
+	}
 </script>
 
 {#if noMarks}
@@ -149,21 +157,36 @@
 	{#if trails}
 		<g>
 			{#each data as d (d.id)}
-				<g style="opacity:{isDim(d.id) ? 0.06 : isActive(d.id) ? 1 : 0.35};transition:opacity 120ms">
+				<g
+					style="opacity:{isDim(d.id) ? 0.06 : isActive(d.id) ? 1 : 0.35};transition:opacity 120ms;cursor:pointer"
+					role="button"
+					tabindex="0"
+					aria-label={d.name}
+					onmouseenter={() => onHover(d.id)}
+					onmouseleave={() => onHover(null)}
+					onfocus={() => onHover(d.id)}
+					onblur={() => onHover(null)}
+					onclick={() => onPin(d.id)}
+					onkeydown={(e) => onKey(e, d.id)}
+				>
+					<title>{d.name}</title>
+					<!-- Invisible wide stroke gives the thin curve a usable hit area. -->
+					<path d={trailPath(d)} fill="none" stroke="transparent" stroke-width="12" />
 					<path d={trailPath(d)} fill="none" stroke={colorScale(d.success_rate)} stroke-width={isActive(d.id) ? 1.6 : 0.8} stroke-opacity="0.7" />
 					{#each trailPoints(d) as p, i (i)}
-						<circle cx={p[0]} cy={p[1]} r={isActive(d.id) ? 2.2 : 1.6} fill={colorScale(d.success_rate)} opacity="0.85" />
+						<circle cx={p[0]} cy={p[1]} r={isActive(d.id) ? 2.4 : 1.6} fill={colorScale(d.success_rate)} opacity="0.85" />
 					{/each}
+					{#if isActive(d.id) && trailPoints(d).length}
+						{@const last = trailPoints(d)[trailPoints(d).length - 1]}
+						<text x={last[0] + 6} y={last[1] + 3} fill="var(--text)" font-size="10.5" font-family="var(--mono)" style="pointer-events:none">{d.name}</text>
+					{/if}
 				</g>
 			{/each}
 		</g>
-	{/if}
-
+	{:else}
 	<g>
 		{#each points as d (d.id)}
 			<g style="opacity:{isDim(d.id) ? 0.18 : 1};transition:opacity 120ms ease">
-				<!-- svelte-ignore a11y_click_events_have_key_events -->
-				<!-- Data points are mouse/touch driven; hover surfaces the same info as click-to-pin. -->
 				<circle
 					cx={xScale(val(d, xKey))}
 					cy={yScale(val(d, yKey))}
@@ -174,12 +197,17 @@
 					stroke-width={isActive(d.id) ? 1.5 : 1}
 					style="cursor:pointer;transition:fill-opacity 120ms,stroke 120ms"
 					role="button"
-					tabindex="-1"
+					tabindex="0"
 					aria-label={d.name}
 					onmouseenter={() => onHover(d.id)}
 					onmouseleave={() => onHover(null)}
+					onfocus={() => onHover(d.id)}
+					onblur={() => onHover(null)}
 					onclick={() => onPin(d.id)}
-				/>
+					onkeydown={(e) => onKey(e, d.id)}
+				>
+					<title>{d.name}</title>
+				</circle>
 				{#if isActive(d.id)}
 					<text
 						x={xScale(val(d, xKey)) + r(d) + 6}
@@ -193,5 +221,6 @@
 			</g>
 		{/each}
 	</g>
+	{/if}
 	</svg>
 {/if}

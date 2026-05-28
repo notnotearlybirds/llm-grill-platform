@@ -42,6 +42,7 @@ def no_s3_catalog(monkeypatch):
 
     monkeypatch.setattr(bench_service, "upload_models_catalog", _noop)
     monkeypatch.setattr(bench_service, "upload_scenarios_catalog", _noop)
+    monkeypatch.setattr(bench_service, "upload_engines_catalog", _noop)
 
 
 class TestPendingRunCount:
@@ -92,13 +93,18 @@ class TestPublishCatalogs:
             calls.append("scenarios")
             return "stub"
 
+        async def _engines(payload: str) -> str:
+            calls.append("engines")
+            return "stub"
+
         monkeypatch.setattr(bench_service, "_load_models", lambda: _make_entries("a/x"))
         monkeypatch.setattr(bench_service, "upload_models_catalog", _models)
         monkeypatch.setattr(bench_service, "upload_scenarios_catalog", _scenarios)
+        monkeypatch.setattr(bench_service, "upload_engines_catalog", _engines)
 
         await bench_service.publish_catalogs()
 
-        assert calls == ["models", "scenarios"]
+        assert calls == ["models", "scenarios", "engines"]
 
 
 class TestSubmit:

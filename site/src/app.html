@@ -1,16 +1,36 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>llm-grill · benchmark</title>
 		<link rel="icon" href="%sveltekit.assets%/favicon.svg" />
-		<link rel="preconnect" href="https://fonts.googleapis.com" />
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-		<link
-			href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap"
-			rel="stylesheet"
+
+		<title>llm-grill · LLM inference benchmark</title>
+		<meta
+			name="description"
+			content="Open benchmark of LLM inference servers on Scaleway GPUs — TTFT, throughput and latency under concurrency."
 		/>
+		<meta property="og:type" content="website" />
+		<meta property="og:title" content="llm-grill · LLM inference benchmark" />
+		<meta
+			property="og:description"
+			content="Open benchmark of LLM inference servers on Scaleway GPUs — TTFT, throughput and latency under concurrency."
+		/>
+		<meta property="og:url" content="https://llm-grill.fr" />
+		<meta name="twitter:card" content="summary" />
+
+		<!-- Apply the persisted theme before first paint to avoid a flash (ssr=off). -->
+		<script>
+			(() => {
+				try {
+					const t = localStorage.getItem('llm-grill-theme');
+					document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');
+				} catch (_) {
+					document.documentElement.setAttribute('data-theme', 'dark');
+				}
+			})();
+		</script>
+
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
