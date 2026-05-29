@@ -75,7 +75,8 @@
 	}
 
 	const filtered = $derived(view.filter(matches));
-	const totalModels = $derived(new Set(view.map((r) => r.model)).size);
+	const benchedModelIds = $derived(new Set(view.map((r) => r.model)));
+	const totalModels = $derived(benchedModelIds.size);
 	const visibleModels = $derived(new Set(filtered.map((r) => r.model)).size);
 
 	// Engine columns are driven by engines.json (label + order from the backend Engine
@@ -151,6 +152,7 @@
 	{:else}
 		<Filters
 			modelsMeta={models}
+			{benchedModelIds}
 			{categories}
 			{brands}
 			{activeCats}

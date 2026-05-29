@@ -100,7 +100,6 @@ select {
 .hdr-l {
 	display: flex;
 	align-items: center;
-	gap: 32px;
 }
 .logo {
 	display: flex;
@@ -125,27 +124,6 @@ select {
 }
 .logo-sub {
 	color: var(--text-3);
-}
-.hdr-nav {
-	display: flex;
-	gap: 4px;
-}
-.hdr-link {
-	padding: 5px 10px;
-	border-radius: 4px;
-	font-family: var(--mono);
-	font-size: 11px;
-	color: var(--text-3);
-	cursor: pointer;
-	text-decoration: none;
-}
-.hdr-link:hover {
-	color: var(--text-2);
-	background: var(--bg-2);
-}
-.hdr-link-active {
-	color: var(--text);
-	background: var(--bg-2);
 }
 .hdr-r {
 	display: flex;

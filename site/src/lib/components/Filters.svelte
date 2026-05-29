@@ -3,6 +3,7 @@
 
 	let {
 		modelsMeta,
+		benchedModelIds,
 		categories,
 		brands,
 		activeCats,
@@ -17,6 +18,7 @@
 		onClearPins
 	}: {
 		modelsMeta: ModelMeta[];
+		benchedModelIds: Set<string>;
 		categories: string[];
 		brands: string[];
 		activeCats: Set<string>;
@@ -31,19 +33,29 @@
 		onClearPins: () => void;
 	} = $props();
 
-	// Count distinct models (a model present on both engines must not count twice),
-	// so pill counts line up with the de-duplicated `totalModels` header stat.
-	const distinctModels = (rows: ModelMeta[]) => new Set(rows.map((m) => m.model)).size;
+	// Pre-filter by search so pill counts reflect what the current query would match.
+	const searchedMeta = $derived(
+		search
+			? modelsMeta.filter((m) => {
+					const q = search.toLowerCase();
+					return m.display_name.toLowerCase().includes(q) || m.model.toLowerCase().includes(q);
+				})
+			: modelsMeta
+	);
+
+	// Count distinct benched models — a model on two engines must not count twice.
+	const distinctBenched = (rows: ModelMeta[]) =>
+		new Set(rows.filter((m) => benchedModelIds.has(m.model)).map((m) => m.model)).size;
 	const catCount = (c: string) =>
-		distinctModels(modelsMeta.filter((m) => m.categories.includes(c)));
-	const brandCount = (b: string) => distinctModels(modelsMeta.filter((m) => m.brand === b));
+		distinctBenched(searchedMeta.filter((m) => m.categories.includes(c)));
+	const brandCount = (b: string) => distinctBenched(searchedMeta.filter((m) => m.brand === b));
 </script>
 
 <section class="filters">
 	<div class="filter-row">
 		<span class="filter-key">category</span>
 		<div class="pills">
-			{#each categories as c (c)}
+			{#each categories.filter((c) => catCount(c) > 0) as c (c)}
 				<button class="pill" class:pill-active={activeCats.has(c)} onclick={() => onToggleCat(c)}>
 					<span>{c}</span><span class="pill-count">{catCount(c)}</span>
 				</button>
@@ -53,7 +65,7 @@
 	<div class="filter-row">
 		<span class="filter-key">brand</span>
 		<div class="pills">
-			{#each brands as b (b)}
+			{#each brands.filter((b) => brandCount(b) > 0) as b (b)}
 				<button class="pill" class:pill-active={activeBrands.has(b)} onclick={() => onToggleBrand(b)}>
 					<span>{b}</span><span class="pill-count">{brandCount(b)}</span>
 				</button>

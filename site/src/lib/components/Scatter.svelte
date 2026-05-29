@@ -46,12 +46,16 @@
 	// Points feeding the domain (include trail points when trails are on).
 	const allPoints = $derived(
 		(() => {
-			const out = data.map((d) => ({ x: val(d, xKey), y: val(d, yKey), s: val(d, sizeKey) }));
+			const out: { x: number; y: number; s?: number }[] = data.map((d) => ({
+				x: val(d, xKey),
+				y: val(d, yKey),
+				s: val(d, sizeKey)
+			}));
 			if (trails) {
 				for (const d of data) {
 					for (const pc of perConcurrency(d._row)) {
 						const m = flattenPoint(pc) as Record<string, number>;
-						out.push({ x: m[xKey], y: m[yKey], s: m[sizeKey] ?? 0 });
+						out.push({ x: m[xKey], y: m[yKey] });
 					}
 				}
 			}
@@ -61,7 +65,7 @@
 
 	const xDomain = $derived(paddedDomain(allPoints.map((p) => p.x)));
 	const yDomain = $derived(paddedDomain(allPoints.map((p) => p.y)));
-	const sizes = $derived(allPoints.map((p) => p.s));
+	const sizes = $derived(allPoints.map((p) => p.s).filter((s): s is number => s !== undefined));
 	const sMin = $derived(Math.min(...sizes));
 	const sMax = $derived(Math.max(...sizes));
 
