@@ -86,8 +86,10 @@
 			</span>
 		{:else}
 			<span class="enc-item">
+				<span class="enc-range">70%</span>
 				<span class="enc-gradient"></span>
-				<span class="enc-label">color = success</span>
+				<span class="enc-range">100%</span>
+				<span class="enc-label">success</span>
 			</span>
 		{/if}
 	</div>

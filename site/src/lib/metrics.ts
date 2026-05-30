@@ -53,7 +53,7 @@ export function fmtMs(seconds: number): string {
 /** Axis tick formatter (values already in the row's display units).
  *  Latencies stay in ms end-to-end (matching the metric `unit` and flattenPoint),
  *  so large values collapse to the generic "k" suffix rather than a stray "s". */
-export function formatTick(v: number, key: string): string {
+export function formatTick(v: number, key: MetricKey): string {
 	if (key === 'success_rate') return `${(v * 100).toFixed(0)}%`;
 	if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(1)}k`;
 	if (Number.isInteger(v) || Math.abs(v) >= 10) return v.toFixed(0);

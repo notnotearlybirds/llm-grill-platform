@@ -1,4 +1,4 @@
-// Data layer: fetch the three public JSON files and merge them into the flat
+// Data layer: fetch the four public JSON files and merge them into the flat
 // ViewRow shape the scatter consumes. Mirrors the mockup's buildView(), adapted
 // to the real (flat) leaderboard rows produced by storage.update_leaderboard_for.
 import type {
@@ -29,12 +29,14 @@ async function getJson<T>(file: string): Promise<T> {
 	return (await res.json()) as T;
 }
 
-/** Tolerant fetch for non-essential catalogs: a missing/unavailable file degrades to
- *  `fallback` instead of failing the whole page load. */
+/** Tolerant fetch for non-essential catalogs: 404 degrades silently to `fallback`;
+ *  other failures (network, CORS, 5xx) are logged so they don't go unnoticed. */
 async function getJsonOptional<T>(file: string, fallback: T): Promise<T> {
 	try {
 		return await getJson<T>(file);
-	} catch {
+	} catch (err) {
+		const msg = err instanceof Error ? err.message : String(err);
+		if (!msg.includes(': 404')) console.error(`catalog load failed — ${msg}`);
 		return fallback;
 	}
 }

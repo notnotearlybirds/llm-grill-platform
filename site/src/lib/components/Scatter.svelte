@@ -66,8 +66,8 @@
 	const xDomain = $derived(paddedDomain(allPoints.map((p) => p.x)));
 	const yDomain = $derived(paddedDomain(allPoints.map((p) => p.y)));
 	const sizes = $derived(allPoints.map((p) => p.s).filter((s): s is number => s !== undefined));
-	const sMin = $derived(Math.min(...sizes));
-	const sMax = $derived(Math.max(...sizes));
+	const sMin = $derived(sizes.length ? Math.min(...sizes) : 1);
+	const sMax = $derived(sizes.length ? Math.max(...sizes) : 1);
 
 	const xScale = $derived(linear(xDomain, [padding.left, padding.left + iw]));
 	const yScale = $derived(linear(yDomain, [padding.top + ih, padding.top]));
@@ -94,21 +94,30 @@
 
 	// Precompute screen-space trail geometry once per row (path + points), instead
 	// of recomputing it for the path, every circle, and the label on each render.
+	// Filters out per-concurrency points whose selected axes are non-finite so NaN
+	// coordinates never reach the SVG.
 	const trailData = $derived(
 		trails
-			? data.map((d) => {
-					const pts = perConcurrency(d._row).map(
-						(pc) => {
-							const m = flattenPoint(pc) as Record<string, number>;
-							return [xScale(m[xKey]), yScale(m[yKey])] as [number, number];
-						}
-					);
-					const path = pts
-						.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`)
-						.join(' ');
-					return { d, pts, path };
-				})
+			? data
+					.map((d) => {
+						const pts = perConcurrency(d._row)
+							.map((pc) => {
+								const m = flattenPoint(pc) as Record<string, number>;
+								return [xScale(m[xKey]), yScale(m[yKey])] as [number, number];
+							})
+							.filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
+						const path = pts
+							.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`)
+							.join(' ');
+						return { d, pts, path };
+					})
+					.filter(({ pts }) => pts.length > 0)
 			: []
+	);
+
+	// Active trail rendered last so it sits on top of inactive ones.
+	const sortedTrailData = $derived(
+		[...trailData].sort((a, b) => (isActive(a.d.id) ? 1 : 0) - (isActive(b.d.id) ? 1 : 0))
 	);
 
 	// Keyboard equivalent of click-to-pin, so the chart is reachable without a mouse.
@@ -156,7 +165,7 @@
 
 	{#if trails}
 		<g>
-			{#each trailData as { d, pts, path } (d.id)}
+			{#each sortedTrailData as { d, pts, path } (d.id)}
 				<g
 					style="opacity:{isDim(d.id) ? 0.06 : isActive(d.id) ? 1 : 0.35};transition:opacity 120ms;cursor:pointer"
 					role="button"

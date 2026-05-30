@@ -1,6 +1,5 @@
 import asyncio
 import json
-from typing import Literal
 
 import yaml
 from fastapi import HTTPException, status
@@ -30,7 +29,7 @@ _hf = HfApi()
 
 class ModelEntry(BaseModel):
     model: str
-    engine: Literal["vllm", "llamacpp"]
+    engine: Engine
     size_b: int
     scenario: str = "scenarios/ramp.yaml"
     gguf_file: str | None = None
@@ -42,8 +41,8 @@ class ModelEntry(BaseModel):
     @field_validator("gguf_file")
     @classmethod
     def gguf_required_for_llamacpp(cls, v: str | None, info) -> str | None:
-        if info.data.get("engine") == "llamacpp" and not v:
-            raise ValueError("gguf_file is required when engine is llamacpp")
+        if info.data.get("engine") == Engine.llamacpp and not v:
+            raise ValueError("gguf_file is required when engine is llama.cpp")
         return v
 
 
@@ -112,7 +111,7 @@ async def pending_run_count(force: bool, model_filter: str | None) -> int:
     if force:
         return len(entries)
     flags = await asyncio.gather(
-        *(head_latest_meta(e.model, Engine(e.engine)) for e in entries)
+        *(head_latest_meta(e.model, e.engine) for e in entries)
     )
     return sum(1 for has_meta in flags if not has_meta)
 
@@ -134,7 +133,7 @@ async def submit(force: bool = False, model_filter: str | None = None) -> dict:
     for entry in entries:
         label = f"{entry.model} [{entry.engine}]"
 
-        if not force and await head_latest_meta(entry.model, Engine(entry.engine)):
+        if not force and await head_latest_meta(entry.model, entry.engine):
             skipped.append(label)
             continue
 
@@ -148,7 +147,7 @@ async def submit(force: bool = False, model_filter: str | None = None) -> dict:
             RunCreate(
                 model=entry.model,
                 model_size_b=entry.size_b,
-                engine=Engine(entry.engine),
+                engine=entry.engine,
                 scenario_path=entry.scenario,
                 gguf_file=entry.gguf_file,
             )

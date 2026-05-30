@@ -9,7 +9,9 @@ from src.services import bench_service
 
 
 def _make_entries(*models):
-    return [bench_service.ModelEntry(model=m, engine="vllm", size_b=8) for m in models]
+    return [
+        bench_service.ModelEntry(model=m, engine=Engine.vllm, size_b=8) for m in models
+    ]
 
 
 @pytest.fixture(autouse=True)
@@ -239,7 +241,7 @@ class TestSubmit:
             lambda: [
                 bench_service.ModelEntry(
                     model="bartowski/Llama-3.1-8B-Instruct-GGUF",
-                    engine="llamacpp",
+                    engine=Engine.llamacpp,
                     size_b=8,
                     gguf_file="Llama-3.1-8B-Instruct-Q4_K_M.gguf",
                 )

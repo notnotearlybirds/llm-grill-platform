@@ -232,7 +232,7 @@ The orchestrator publishes four public-read JSON files at the bucket root. The f
 Static SvelteKit dashboard (single-page interactive scatter, vLLM vs llama.cpp).
 Decisions in [ADR 001d](docs/adr/001d-frontend-sveltekit.md): **adapter-static**,
 charting is **native Svelte SVG + d3-scale** (no LayerCake), **no Tailwind** (CSS
-tokens in `src/app.css`). It reads the three public S3 JSON files **at runtime** —
+tokens in `src/app.css`). It reads the four public S3 JSON files **at runtime** —
 no build-time data, no dependency on the orchestrator.
 
 - **Stack**: SvelteKit 2 + Svelte 5 (runes), TypeScript, d3-scale. Package manager: **npm**.

@@ -159,7 +159,6 @@
 			{activeBrands}
 			{search}
 			{visibleModels}
-			{totalModels}
 			pinnedCount={pinned.size}
 			{onToggleCat}
 			{onToggleBrand}

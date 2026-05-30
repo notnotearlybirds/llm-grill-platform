@@ -10,7 +10,6 @@
 		activeBrands,
 		search,
 		visibleModels,
-		totalModels,
 		pinnedCount,
 		onToggleCat,
 		onToggleBrand,
@@ -25,7 +24,6 @@
 		activeBrands: Set<string>;
 		search: string;
 		visibleModels: number;
-		totalModels: number;
 		pinnedCount: number;
 		onToggleCat: (c: string) => void;
 		onToggleBrand: (b: string) => void;
@@ -41,6 +39,11 @@
 					return m.display_name.toLowerCase().includes(q) || m.model.toLowerCase().includes(q);
 				})
 			: modelsMeta
+	);
+
+	// Total benched models that also match the current search — the fraction denominator.
+	const searchedTotal = $derived(
+		new Set(searchedMeta.filter((m) => benchedModelIds.has(m.model)).map((m) => m.model)).size
 	);
 
 	// Count distinct benched models — a model on two engines must not count twice.
@@ -94,7 +97,7 @@
 			{/if}
 		</div>
 		<div class="filter-status">
-			<span class="filter-n">{visibleModels}</span> / {totalModels} models
+			<span class="filter-n">{visibleModels}</span> / {searchedTotal} models
 			{#if pinnedCount > 0}
 				<button class="clear-pin" onclick={onClearPins}>clear {pinnedCount} pinned</button>
 			{/if}

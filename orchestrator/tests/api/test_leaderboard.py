@@ -25,7 +25,7 @@ def reset_leaderboard_cache():
 def _leaderboard_entry(**overrides) -> dict:
     base = {
         "model": "meta-llama/Llama-3-8B",
-        "engine": "vllm",
+        "engine": "vLLM",
         "gpu_type": "L40S",
         "tokens_per_second_mean": 45.0,
         "total_tokens_per_second": 120.0,
