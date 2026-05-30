@@ -23,9 +23,15 @@ export interface Catalogs {
 	engines: EngineMeta[];
 }
 
+class HttpError extends Error {
+	constructor(public readonly status: number, message: string) {
+		super(message);
+	}
+}
+
 async function getJson<T>(file: string): Promise<T> {
 	const res = await fetch(`${BASE}/${file}`);
-	if (!res.ok) throw new Error(`${file}: ${res.status} ${res.statusText}`);
+	if (!res.ok) throw new HttpError(res.status, `${file}: ${res.status} ${res.statusText}`);
 	return (await res.json()) as T;
 }
 
@@ -35,8 +41,8 @@ async function getJsonOptional<T>(file: string, fallback: T): Promise<T> {
 	try {
 		return await getJson<T>(file);
 	} catch (err) {
-		const msg = err instanceof Error ? err.message : String(err);
-		if (!msg.includes(': 404')) console.error(`catalog load failed — ${msg}`);
+		if (!(err instanceof HttpError && err.status === 404))
+			console.error(`catalog load failed — ${err instanceof Error ? err.message : err}`);
 		return fallback;
 	}
 }
