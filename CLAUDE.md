@@ -61,7 +61,13 @@ runner/                # cloud-init / systemd runner on GPU VM
 
 scenarios/             # llm-grill scenario YAMLs
 docs/adr/              # versioned ADRs
-.github/workflows/     # bench.yml + ci.yml
+.github/workflows/     # bench.yml · ci-orchestrator.yml · ci-site.yml · deploy-site.yml · publish-catalogs.yml
+
+site/                  # static SvelteKit frontend (Cloudflare Pages)
+├── src/lib/           # types.ts · data.ts · metrics.ts · scales.ts · theme.ts · components/
+├── src/routes/        # +page.svelte (dashboard) · +layout.ts (prerender, ssr off)
+├── static/sample/     # dev fixtures: {leaderboard,models,scenarios}.json
+└── scripts/gen-sample.mjs   # regenerate the dev fixtures
 ```
 
 > Hexagonal naming: `Service` / `Adapter` / `Repository` / `Port`. Enforced.
@@ -92,6 +98,18 @@ make setup-dev    # uv sync --frozen --group dev
 make test         # pytest -v --cov=src
 make lint         # ruff check --fix + ruff format
 make check        # ruff + ty (CI-style, no fixes)
+make publish-catalogs  # derive + upload models.json/scenarios.json to S3 (no VM/GPU)
+```
+
+### `site/Makefile` — Frontend
+
+```bash
+make setup        # npm ci
+make dev          # vite dev server (uses static/sample/ unless VITE_DATA_BASE_URL set)
+make build        # static build into site/build/
+make preview      # serve the production build
+make check        # svelte-check (types)
+make sample       # regenerate dev fixtures in static/sample/
 ```
 
 ---
@@ -138,6 +156,8 @@ Trigger: push that touches `orchestrator/models.yaml`, or manual `workflow_dispa
 
 ```
 .github/workflows/bench.yml
+  0. preflight                 → count pending runs via S3 dedup (no VM/GPU);
+                                 skip provision/bench/teardown entirely if 0
   1. terraform apply           → create orchestrator VM
   2. rsync repo + write .env   → on VM
   3. docker compose up         → postgres + migrations + orchestrator
@@ -147,6 +167,21 @@ Trigger: push that touches `orchestrator/models.yaml`, or manual `workflow_dispa
                                  incrementally on each run completion)
   6. terraform destroy         → always (even on failure)
 ```
+
+A **GPU VM is provisioned only for a queued run** (a model that fails S3 dedup,
+or `force=true`). Step 0 means an editorial-only `models.yaml` edit spins **no VM
+at all**.
+
+**Catalog refresh is decoupled from benchmarking.** `models.json` / `scenarios.json`
+are pure functions of `models.yaml` / `scenarios/*.yaml`, so a separate lightweight
+job republishes them without any VM:
+
+```
+.github/workflows/publish-catalogs.yml   # on models.yaml or scenarios/** change
+  → uv run python scripts/publish_catalogs.py   → upload models.json + scenarios.json to S3
+```
+
+Since the frontend fetches these at runtime, the refresh is live immediately (no redeploy).
 
 ---
 
@@ -162,6 +197,7 @@ Schema per entry:
   size_b: <float>                  # billions of parameters
   scenario: scenarios/ramp.yaml    # optional (default)
   gguf_file: <filename>            # llamacpp only
+  categories: [MoE, Reasoning]     # optional editorial tags (default [Dense])
 ```
 
 Force a full re-bench: trigger `bench` workflow manually with `force=true`.
@@ -175,17 +211,41 @@ aws s3 rm "s3://${SCW_BUCKET}/results/<slug>/<engine>/latest.meta.json" \
 
 ### Public S3 artifacts (consumed by the static frontend)
 
-The orchestrator publishes three public-read JSON files at the bucket root. The front never reads `models.yaml` / `scenarios/*.yaml` directly — it fetches these. See `docs/frontend-plan.md § Data contract` for the full shapes.
+The orchestrator publishes four public-read JSON files at the bucket root. The front never reads `models.yaml` / `scenarios/*.yaml` directly — it fetches these. Full shapes are typed in `site/src/lib/types.ts` (the frontend's data contract).
 
 | File | Written by | When |
 |---|---|---|
 | `leaderboard.json` | `storage.update_leaderboard_for` | incrementally on each successful run completion |
-| `models.json` | `storage.upload_models_catalog` | on each `POST /bench`, derived from `models.yaml` |
-| `scenarios.json` | `storage.upload_scenarios_catalog` | on each `POST /bench`, derived from all `scenarios/*.yaml` |
+| `models.json` | `storage.upload_models_catalog` | on each `POST /bench` **and** the `publish-catalogs` job (models.yaml change), derived from `models.yaml` |
+| `scenarios.json` | `storage.upload_scenarios_catalog` | on each `POST /bench` **and** the `publish-catalogs` job (scenarios/** change), derived from all `scenarios/*.yaml` |
+| `engines.json` | `storage.upload_engines_catalog` | on each `POST /bench` **and** the `publish-catalogs` job, derived from the `Engine` enum |
 
 - `leaderboard.json` rows carry per-`(model, engine)` aggregates **plus** a `per_concurrency` breakdown (TTFT/TPOT/throughput per ramp level — the load curve, not just the collapsed mean).
-- `models.json` is fully **derived** (no editorial fields hand-maintained in `models.yaml`): `brand` = HF org, `params_b` = `size_b`, `quantization` parsed from `gguf_file` (or `null`).
+- `models.json` is mostly **derived**: `brand` = HF org, `params_b` = `size_b`, `quantization` parsed from `gguf_file` (or `null`), `display_name` cleaned from the HF id. `categories` (`Reasoning|MoE|Dense|Quantized`, frontend filters) is the one **declared editorial** field on a `models.yaml` entry — defaults to `["Dense"]` when omitted (architecture tags are declared, not guessed); `Quantized` is appended automatically for GGUF runs.
 - `scenarios.json` is **directory-discovered**: drop a new `scenarios/*.yaml` and it surfaces on the next bench, no code change.
+- `engines.json` is the ordered `[{id, label}]` list **derived from the `Engine` enum** (`catalog.build_engines_catalog`): the single source of truth for engine display labels (`vLLM`/`llama.cpp`) and chart-column order. The front reads it instead of hardcoding engine names — add an engine to the enum and it surfaces with no frontend change.
+
+---
+
+## Frontend (`site/`)
+
+Static SvelteKit dashboard (single-page interactive scatter, vLLM vs llama.cpp).
+Decisions in [ADR 001d](docs/adr/001d-frontend-sveltekit.md): **adapter-static**,
+charting is **native Svelte SVG + d3-scale** (no LayerCake), **no Tailwind** (CSS
+tokens in `src/app.css`). It reads the four public S3 JSON files **at runtime** —
+no build-time data, no dependency on the orchestrator.
+
+- **Stack**: SvelteKit 2 + Svelte 5 (runes), TypeScript, d3-scale. Package manager: **npm**.
+- **Dev**: `cd site && make dev`. With no `VITE_DATA_BASE_URL`, it falls back to the
+  bundled fixtures in `static/sample/` (regenerate with `make sample`).
+- **Live data**: `VITE_DATA_BASE_URL=https://s3.${SCW_REGION}.scw.cloud/${SCW_BUCKET} make dev`.
+- **Data layer**: `src/lib/data.ts` fetches + merges leaderboard/models on `(model, engine)`
+  into the flat `ViewRow` the scatter consumes. Tolerant of legacy rows missing
+  `per_concurrency` / metrics (guarded; unplottable points are skipped).
+- **Deploy**: **Cloudflare Pages** via `.github/workflows/deploy-site.yml`
+  (`wrangler pages deploy build`), on `site/**` push or a successful `bench` run.
+  Needs repo secrets `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` and the
+  `VITE_DATA_BASE_URL` repo variable. PR checks: `ci-site.yml` (svelte-check + build).
 
 ---
 

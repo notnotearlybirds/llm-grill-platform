@@ -19,8 +19,21 @@ from typing import TYPE_CHECKING
 import yaml
 from loguru import logger
 
+from src.models import Engine
+
 if TYPE_CHECKING:
     from src.services.bench_service import ModelEntry
+
+
+def build_engines_catalog() -> list[dict]:
+    """Ordered engine catalog (id + display label) for the static frontend.
+
+    Order follows the `Engine` enum declaration; the front uses it for column
+    order and labels, so adding an engine here surfaces it without a front change.
+    `e.label` raises KeyError immediately if a new Engine is missing a display label.
+    """
+    return [{"id": e.value, "label": e.label} for e in Engine]
+
 
 # GGUF quant tag, e.g. Q4_K_M, Q5_K_S, Q8_0, IQ4_XS, BF16, F16 in a filename
 # like "Qwen2.5-14B-Instruct-Q4_K_M.gguf".

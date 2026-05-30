@@ -1,0 +1,18 @@
+[
+  {
+    "path": "scenarios/ramp.yaml",
+    "name": "ramp",
+    "description": "Ramp load test across concurrency levels.",
+    "concurrency_levels": [
+      1,
+      4,
+      8,
+      16,
+      32,
+      64
+    ],
+    "iterations": 2,
+    "max_tokens": 256,
+    "prompt": "Explain in one paragraph why the sky is blue."
+  }
+]

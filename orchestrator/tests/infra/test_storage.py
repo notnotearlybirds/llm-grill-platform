@@ -22,6 +22,7 @@ from src.storage import (
     presigned_logs_url,
     presigned_url,
     update_leaderboard_for,
+    upload_engines_catalog,
     upload_leaderboard,
     upload_logs,
     upload_meta,
@@ -460,6 +461,7 @@ class TestPublicCatalogUploads:
             (upload_leaderboard, "leaderboard.json"),
             (upload_models_catalog, "models.json"),
             (upload_scenarios_catalog, "scenarios.json"),
+            (upload_engines_catalog, "engines.json"),
         ],
     )
     async def test_should_put_public_read_json_at_root(self, mock_s3, fn, expected_key):

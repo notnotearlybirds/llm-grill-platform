@@ -1,0 +1,146 @@
+[
+  {
+    "model": "meta-llama/Llama-3.1-8B-Instruct",
+    "engine": "vllm",
+    "display_name": "Llama 3.1 8B",
+    "brand": "Meta",
+    "params_b": 8,
+    "quantization": null,
+    "categories": [
+      "Dense"
+    ],
+    "scenario": "scenarios/ramp.yaml"
+  },
+  {
+    "model": "meta-llama/Llama-3.1-8B-Instruct",
+    "engine": "llamacpp",
+    "display_name": "Llama 3.1 8B",
+    "brand": "Meta",
+    "params_b": 8,
+    "quantization": "Q4_K_M",
+    "categories": [
+      "Dense"
+    ],
+    "scenario": "scenarios/ramp.yaml"
+  },
+  {
+    "model": "meta-llama/Llama-3.1-70B-Instruct",
+    "engine": "vllm",
+    "display_name": "Llama 3.1 70B",
+    "brand": "Meta",
+    "params_b": 70,
+    "quantization": null,
+    "categories": [
+      "Dense"
+    ],
+    "scenario": "scenarios/ramp.yaml"
+  },
+  {
+    "model": "meta-llama/Llama-3.1-70B-Instruct",
+    "engine": "llamacpp",
+    "display_name": "Llama 3.1 70B",
+    "brand": "Meta",
+    "params_b": 70,
+    "quantization": "Q4_K_M",
+    "categories": [
+      "Dense"
+    ],
+    "scenario": "scenarios/ramp.yaml"
+  },
+  {
+    "model": "mistralai/Mixtral-8x7B-Instruct",
+    "engine": "vllm",
+    "display_name": "Mixtral 8x7B",
+    "brand": "Mistral",
+    "params_b": 47,
+    "quantization": null,
+    "categories": [
+      "MoE"
+    ],
+    "scenario": "scenarios/ramp.yaml"
+  },
+  {
+    "model": "mistralai/Mixtral-8x7B-Instruct",
+    "engine": "llamacpp",
+    "display_name": "Mixtral 8x7B",
+    "brand": "Mistral",
+    "params_b": 47,
+    "quantization": "Q4_K_M",
+    "categories": [
+      "MoE"
+    ],
+    "scenario": "scenarios/ramp.yaml"
+  },
+  {
+    "model": "Qwen/Qwen2.5-14B-Instruct",
+    "engine": "vllm",
+    "display_name": "Qwen2.5 14B",
+    "brand": "Qwen",
+    "params_b": 14,
+    "quantization": null,
+    "categories": [
+      "Dense"
+    ],
+    "scenario": "scenarios/ramp.yaml"
+  },
+  {
+    "model": "Qwen/Qwen2.5-14B-Instruct",
+    "engine": "llamacpp",
+    "display_name": "Qwen2.5 14B",
+    "brand": "Qwen",
+    "params_b": 14,
+    "quantization": "Q4_K_M",
+    "categories": [
+      "Dense"
+    ],
+    "scenario": "scenarios/ramp.yaml"
+  },
+  {
+    "model": "Qwen/QwQ-32B-Preview",
+    "engine": "vllm",
+    "display_name": "QwQ 32B",
+    "brand": "Qwen",
+    "params_b": 32,
+    "quantization": null,
+    "categories": [
+      "Reasoning"
+    ],
+    "scenario": "scenarios/ramp.yaml"
+  },
+  {
+    "model": "Qwen/QwQ-32B-Preview",
+    "engine": "llamacpp",
+    "display_name": "QwQ 32B",
+    "brand": "Qwen",
+    "params_b": 32,
+    "quantization": "Q4_K_M",
+    "categories": [
+      "Reasoning"
+    ],
+    "scenario": "scenarios/ramp.yaml"
+  },
+  {
+    "model": "google/gemma-2-27b-it",
+    "engine": "vllm",
+    "display_name": "gemma 2 27b",
+    "brand": "Google",
+    "params_b": 27,
+    "quantization": null,
+    "categories": [
+      "Dense"
+    ],
+    "scenario": "scenarios/ramp.yaml"
+  },
+  {
+    "model": "google/gemma-2-27b-it",
+    "engine": "llamacpp",
+    "display_name": "gemma 2 27b",
+    "brand": "Google",
+    "params_b": 27,
+    "quantization": "Q4_K_M",
+    "categories": [
+      "Dense"
+    ],
+    "scenario": "scenarios/ramp.yaml"
+  }
+]

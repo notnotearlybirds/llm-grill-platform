@@ -25,9 +25,19 @@ class NodeStatus(str, enum.Enum):
     down = "down"
 
 
+_ENGINE_LABELS: dict[str, str] = {
+    "vllm": "vLLM",
+    "llamacpp": "llama.cpp",
+}
+
+
 class Engine(str, enum.Enum):
     vllm = "vllm"
     llamacpp = "llamacpp"
+
+    @property
+    def label(self) -> str:
+        return _ENGINE_LABELS[self.value]
 
 
 class GpuType(str, enum.Enum):

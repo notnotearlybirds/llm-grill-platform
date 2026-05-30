@@ -1,0 +1,10 @@
+[
+  {
+    "id": "vllm",
+    "label": "vLLM"
+  },
+  {
+    "id": "llamacpp",
+    "label": "llama.cpp"
+  }
+]

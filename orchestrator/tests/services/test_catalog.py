@@ -1,16 +1,19 @@
 """Tests for catalog derivation — models.json and scenarios.json builders."""
 
-from typing import Literal
-
 import pytest
 
-from src.catalog import build_models_catalog, build_scenarios_catalog
+from src.catalog import (
+    build_engines_catalog,
+    build_models_catalog,
+    build_scenarios_catalog,
+)
+from src.models import Engine
 from src.services.bench_service import ModelEntry
 
 
 def _entry(
     model: str,
-    engine: Literal["vllm", "llamacpp"] = "vllm",
+    engine: Engine = Engine.vllm,
     size_b: int = 8,
     gguf_file: str | None = None,
     categories: list[str] | None = None,
@@ -58,7 +61,7 @@ class TestBuildModelsCatalog:
             [
                 _entry(
                     "bartowski/Qwen2.5-14B-Instruct-GGUF",
-                    engine="llamacpp",
+                    engine=Engine.llamacpp,
                     gguf_file="Qwen2.5-14B-Instruct-Q4_K_M.gguf",
                 )
             ]
@@ -116,7 +119,7 @@ class TestCategories:
             [
                 _entry(
                     "x/Custom-Model",
-                    engine="llamacpp",
+                    engine=Engine.llamacpp,
                     gguf_file="Custom-Q4_K_M.gguf",
                     categories=["Reasoning"],
                 )
@@ -130,7 +133,7 @@ class TestCategories:
             [
                 _entry(
                     "bartowski/Qwen2.5-14B-Instruct-GGUF",
-                    engine="llamacpp",
+                    engine=Engine.llamacpp,
                     gguf_file="Qwen2.5-14B-Instruct-Q4_K_M.gguf",
                 )
             ]
@@ -244,3 +247,18 @@ class TestBuildScenariosCatalog:
         catalog = build_scenarios_catalog(tmp_path)
 
         assert [s["name"] for s in catalog] == ["ramp"]
+
+
+class TestBuildEnginesCatalog:
+    def test_should_expose_each_engine_with_label_in_enum_order(self):
+        """
+        Given: the Engine enum (vllm, llamacpp)
+        When: the engines catalog is built
+        Then: each engine appears once, labelled, in declaration order
+        """
+        catalog = build_engines_catalog()
+
+        assert catalog == [
+            {"id": "vllm", "label": "vLLM"},
+            {"id": "llamacpp", "label": "llama.cpp"},
+        ]

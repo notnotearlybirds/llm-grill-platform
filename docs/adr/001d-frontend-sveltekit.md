@@ -60,11 +60,31 @@ LayerCake (Svelte-native, lightweight). Fallback: Chart.js via `svelte-chartjs` 
 
 ### Deployment
 
-GitHub Actions (`deploy.yml`): triggered after the `bench` workflow uploads a new `leaderboard.json` to S3 (manual trigger or post-bench hook). Builds SvelteKit, deploys to GitHub Pages; the page fetches `leaderboard.json` from S3 at runtime (or bakes it at build time — see `docs/frontend-plan.md`).
+GitHub Actions: triggered after the `bench` workflow uploads a new `leaderboard.json` to S3 (or on `site/**` push). Builds SvelteKit; the page fetches `leaderboard.json` from S3 at runtime. **Superseded — see § Revision below** (deployment moved to Cloudflare Pages).
 
 ## Consequences
 
 | | |
 |---|---|
-| **+** | Zero server infra (GitHub Pages), instant client-side loading (pre-aggregated data), lightweight bundle, automatic rebuild on new results |
+| **+** | Zero server infra, instant client-side loading (pre-aggregated data), lightweight bundle, automatic rebuild on new results |
 | **−** | No full-text search or ad-hoc queries. Build time grows with data volume (mitigation: incremental aggregation) |
+
+## Revision — 2026-05-26 (MVP build from Claude Design mockup)
+
+Two decisions from the original ADR were superseded while implementing the
+single-page scatter dashboard (`site/`). The SvelteKit + adapter-static base holds.
+
+- **Charting: native Svelte SVG + `d3-scale`, not LayerCake.** The mockup's scatter
+  is hand-rolled SVG with bespoke features (concurrency trails, dual-engine overlay
+  pairing, hover/pin dimming, in-SVG labels). LayerCake supplies scales + a responsive
+  container but we'd still author every mark by hand — it would add a dependency and an
+  abstraction without removing the real work. `d3-scale` covers linear scales + nice
+  ticks; the rest is Svelte SVG (≈1:1 port of the React components).
+- **Deployment: Cloudflare Pages, not GitHub Pages.** `wrangler pages deploy build`
+  from `.github/workflows/deploy-site.yml`, triggered on `site/**` pushes and on a
+  successful `bench` run. Data is fetched at runtime from the public S3 JSON
+  (`VITE_DATA_BASE_URL`).
+- **No Tailwind.** The mockup is plain CSS driven by custom properties; ported verbatim
+  into `src/app.css` (tokens) + scoped component styles.
+- **MVP exposes minimal controls** (theme toggle only); layout is fixed to split and
+  concurrency trails / overlay are implemented but not surfaced — re-exposable later.

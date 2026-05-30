@@ -9,7 +9,9 @@ from src.services import bench_service
 
 
 def _make_entries(*models):
-    return [bench_service.ModelEntry(model=m, engine="vllm", size_b=8) for m in models]
+    return [
+        bench_service.ModelEntry(model=m, engine=Engine.vllm, size_b=8) for m in models
+    ]
 
 
 @pytest.fixture(autouse=True)
@@ -42,6 +44,7 @@ def no_s3_catalog(monkeypatch):
 
     monkeypatch.setattr(bench_service, "upload_models_catalog", _noop)
     monkeypatch.setattr(bench_service, "upload_scenarios_catalog", _noop)
+    monkeypatch.setattr(bench_service, "upload_engines_catalog", _noop)
 
 
 class TestPendingRunCount:
@@ -92,13 +95,18 @@ class TestPublishCatalogs:
             calls.append("scenarios")
             return "stub"
 
+        async def _engines(payload: str) -> str:
+            calls.append("engines")
+            return "stub"
+
         monkeypatch.setattr(bench_service, "_load_models", lambda: _make_entries("a/x"))
         monkeypatch.setattr(bench_service, "upload_models_catalog", _models)
         monkeypatch.setattr(bench_service, "upload_scenarios_catalog", _scenarios)
+        monkeypatch.setattr(bench_service, "upload_engines_catalog", _engines)
 
         await bench_service.publish_catalogs()
 
-        assert calls == ["models", "scenarios"]
+        assert calls == ["models", "scenarios", "engines"]
 
 
 class TestSubmit:
@@ -233,7 +241,7 @@ class TestSubmit:
             lambda: [
                 bench_service.ModelEntry(
                     model="bartowski/Llama-3.1-8B-Instruct-GGUF",
-                    engine="llamacpp",
+                    engine=Engine.llamacpp,
                     size_b=8,
                     gguf_file="Llama-3.1-8B-Instruct-Q4_K_M.gguf",
                 )

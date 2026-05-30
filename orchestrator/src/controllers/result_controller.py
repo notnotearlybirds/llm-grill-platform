@@ -2,7 +2,7 @@ import uuid
 
 from fastapi import HTTPException, status
 
-from src.schemas import LeaderboardEntry, ResultRead
+from src.schemas import ResultRead
 from src.services.result_service import ResultService
 
 
@@ -21,7 +21,3 @@ class ResultController:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="result not found")
         url = await ResultService.get_download_url(run_id)
         return {"url": url}
-
-    @staticmethod
-    async def leaderboard() -> list[LeaderboardEntry]:
-        return await ResultService.get_leaderboard()
