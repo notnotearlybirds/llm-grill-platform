@@ -110,9 +110,8 @@ select {
 }
 .logo-icon {
 	color: var(--accent);
-	font-size: 14px;
-	transform: rotate(180deg);
-	display: inline-block;
+	display: flex;
+	align-items: center;
 }
 .logo-text {
 	color: var(--text);

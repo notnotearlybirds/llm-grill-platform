@@ -13,7 +13,13 @@
 <header class="hdr">
 	<div class="hdr-l">
 		<div class="logo">
-			<span class="logo-icon">▲</span>
+			<svg class="logo-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+					<path d="M2 8C2 3.5 14 3.5 14 8"/>
+					<line x1="1" y1="8" x2="15" y2="8"/>
+					<line x1="5" y1="9" x2="3" y2="15"/>
+					<line x1="11" y1="9" x2="13" y2="15"/>
+					<line x1="3.5" y1="13" x2="12.5" y2="13"/>
+				</svg>
 			<span class="logo-text">llm-grill</span>
 			<span class="logo-dot">·</span>
 			<span class="logo-sub">benchmark</span>

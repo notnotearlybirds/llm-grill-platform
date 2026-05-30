@@ -22,7 +22,7 @@
 
 	let xKey = $state<MetricKey>('tokens_per_sec');
 	let yKey = $state<MetricKey>('ttft_mean');
-	let concurrency = $state<ConcurrencyLevel>(8);
+	let concurrency = $state<ConcurrencyLevel>('agg');
 	let trails = $state(false);
 
 	function setTrails(on: boolean) {
@@ -131,6 +131,13 @@
 	);
 	const scenarioLabel = $derived(catalogs?.scenarios[0]?.name ? `scenario: ${catalogs.scenarios[0].name}` : null);
 
+	// Merge all concurrency levels across scenarios, deduplicated and sorted.
+	const concurrencyLevels = $derived(
+		[...new Set((catalogs?.scenarios ?? []).flatMap((s) => s.concurrency_levels))].sort(
+			(a, b) => a - b
+		)
+	);
+
 	function toggle(set: Set<string>, v: string): Set<string> {
 		const n = new Set(set);
 		n.has(v) ? n.delete(v) : n.add(v);
@@ -171,6 +178,7 @@
 			{yKey}
 			{concurrency}
 			{trails}
+			{concurrencyLevels}
 			onX={(k) => (xKey = k)}
 			onY={(k) => (yKey = k)}
 			onConcurrency={(c) => (concurrency = c)}

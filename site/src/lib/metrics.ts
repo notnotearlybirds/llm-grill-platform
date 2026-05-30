@@ -43,8 +43,6 @@ export const METRICS: Metric[] = [
 
 export const SELECTABLE_METRICS = METRICS.filter((m) => !m.trailsOnly);
 
-export const CONCURRENCY_LEVELS = [1, 4, 8, 16, 32, 64];
-
 /** Latency formatter: sub-second in ms, else seconds. */
 export function fmtMs(seconds: number): string {
 	return seconds < 1 ? `${(seconds * 1000).toFixed(0)} ms` : `${seconds.toFixed(2)} s`;

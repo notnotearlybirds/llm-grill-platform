@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { METRICS, SELECTABLE_METRICS, CONCURRENCY_LEVELS, type MetricKey } from '$lib/metrics';
+	import { METRICS, SELECTABLE_METRICS, type MetricKey } from '$lib/metrics';
 	import type { ConcurrencyLevel } from '$lib/types';
 
 	let {
@@ -7,6 +7,7 @@
 		yKey,
 		concurrency,
 		trails,
+		concurrencyLevels,
 		onX,
 		onY,
 		onConcurrency,
@@ -16,13 +17,14 @@
 		yKey: MetricKey;
 		concurrency: ConcurrencyLevel;
 		trails: boolean;
+		concurrencyLevels: number[];
 		onX: (k: MetricKey) => void;
 		onY: (k: MetricKey) => void;
 		onConcurrency: (c: ConcurrencyLevel) => void;
 		onTrails: (on: boolean) => void;
 	} = $props();
 
-	const levels: ConcurrencyLevel[] = ['agg', ...CONCURRENCY_LEVELS];
+	const levels: ConcurrencyLevel[] = $derived(['agg', ...concurrencyLevels]);
 	// In trails mode the X axis can be the ramp level itself (concurrency), so the
 	// trailsOnly metrics become selectable.
 	const axisMetrics = $derived(trails ? METRICS : SELECTABLE_METRICS);

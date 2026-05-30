@@ -7,7 +7,6 @@ from src.config import settings
 from src.logging_config import setup_logging
 from src.orchestrator import polling_loop
 from src.routers.bench import router as bench_router
-from src.routers.leaderboard import router as leaderboard_router
 from src.routers.nodes import router as nodes_router
 from src.routers.results import router as results_router
 from src.routers.runs import router as runs_router
@@ -32,7 +31,6 @@ app.include_router(bench_router)
 app.include_router(runs_router)
 app.include_router(nodes_router)
 app.include_router(results_router)
-app.include_router(leaderboard_router)
 
 
 @app.get("/health", include_in_schema=False)

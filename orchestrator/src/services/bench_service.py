@@ -42,7 +42,7 @@ class ModelEntry(BaseModel):
     @classmethod
     def gguf_required_for_llamacpp(cls, v: str | None, info) -> str | None:
         if info.data.get("engine") == Engine.llamacpp and not v:
-            raise ValueError("gguf_file is required when engine is llama.cpp")
+            raise ValueError("gguf_file is required when engine is llamacpp")
         return v
 
 
