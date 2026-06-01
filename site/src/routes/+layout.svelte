@@ -7,8 +7,6 @@
 	import '@fontsource/geist-mono/400.css';
 	import '@fontsource/geist-mono/500.css';
 	import '../app.css';
-	// Importing the theme store wires the localStorage <-> data-theme sync.
-	import '$lib/theme';
 
 	let { children } = $props();
 </script>

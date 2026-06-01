@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { theme, toggleTheme } from '$lib/theme';
 
 	let { totalModels, engines = [] }: {
 		totalModels: number;
@@ -55,19 +54,5 @@
 				/></svg
 			>
 		</a>
-		<button class="theme-toggle" title="Toggle theme" onclick={toggleTheme} aria-label="Toggle theme">
-			{#if $theme === 'dark'}
-				<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3">
-					<path d="M11.5 8.2A4.5 4.5 0 0 1 5.8 2.5a5 5 0 1 0 5.7 5.7z" fill="currentColor" />
-				</svg>
-			{:else}
-				<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3">
-					<circle cx="7" cy="7" r="2.5" fill="currentColor" />
-					<g stroke-linecap="round">
-						<path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.6 2.6l1 1M10.4 10.4l1 1M2.6 11.4l1-1M10.4 3.6l1-1" />
-					</g>
-				</svg>
-			{/if}
-		</button>
 	</div>
 </header>
