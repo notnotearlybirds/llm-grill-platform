@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
 	let { lastRun, scenarioLabel }: { lastRun: string | null; scenarioLabel: string | null } = $props();
-	const hostname = browser ? window.location.hostname : 'llm-grill.gireg.fr';
+	const hostname = window.location.hostname;
 </script>
 
 <footer class="ftr">

@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
-
 	let { totalModels, engines = [] }: {
 		totalModels: number;
 		engines?: { label: string; gpu: string }[];
@@ -8,7 +6,6 @@
 
 	const homeUrl = (() => {
 		if (import.meta.env.VITE_HOME_URL) return import.meta.env.VITE_HOME_URL;
-		if (!browser) return 'https://gireg.fr';
 		const u = new URL(window.location.origin);
 		if (u.hostname.startsWith('llm-grill.')) {
 			u.hostname = u.hostname.slice('llm-grill.'.length);
