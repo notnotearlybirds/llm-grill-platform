@@ -104,7 +104,7 @@ make publish-catalogs  # derive + upload models.json/scenarios.json to S3 (no VM
 ### `site/Makefile` — Frontend
 
 ```bash
-make setup        # npm ci
+make install        # npm ci
 make dev          # vite dev server (uses static/sample/ unless VITE_DATA_BASE_URL set)
 make build        # static build into site/build/
 make preview      # serve the production build

@@ -1,13 +1,18 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { theme, toggleTheme } from '$lib/theme';
 
-	// Engines are derived upstream from engines.json + leaderboard rows, so adding a
-	// backend or swapping hardware needs no change here. `gpu` is "" until that engine
-	// has completed runs (we then skip the per-engine hardware stat).
 	let { totalModels, engines = [] }: {
 		totalModels: number;
 		engines?: { label: string; gpu: string }[];
 	} = $props();
+
+	function homeOrigin(url: URL): string {
+		const u = new URL(url);
+		if (u.hostname.startsWith('llm-grill.')) u.hostname = u.hostname.slice('llm-grill.'.length);
+		return u.origin;
+	}
+	const homeUrl = $derived(homeOrigin(page.url));
 </script>
 
 <header class="hdr">
@@ -33,6 +38,12 @@
 				<div class="stat"><span class="stat-n">{e.gpu}</span><span class="stat-l">{e.label}</span></div>
 			{/if}
 		{/each}
+		<a class="gh-link home-link" href={homeUrl} title="home" aria-label="home">
+			<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+				<path d="M1 7L7 1l6 6" />
+				<path d="M2.5 5.5V13h3.5V9h2v4h3.5V5.5" />
+			</svg>
+		</a>
 		<a class="gh-link" title="github" href="https://github.com/llmgrill/llm-grill-platform" aria-label="GitHub">
 			<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"
 				><path
