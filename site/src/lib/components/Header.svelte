@@ -7,7 +7,12 @@
 		engines?: { label: string; gpu: string }[];
 	} = $props();
 
-	const homeUrl = $derived(page.url.origin.replace('://llm-grill.', '://'));
+	function homeOrigin(url: URL): string {
+		const u = new URL(url);
+		if (u.hostname.startsWith('llm-grill.')) u.hostname = u.hostname.slice('llm-grill.'.length);
+		return u.origin;
+	}
+	const homeUrl = $derived(homeOrigin(page.url));
 </script>
 
 <header class="hdr">
