@@ -9,8 +9,6 @@ Source of truth for build, run, and development. Optimized for Claude Code.
 Benchmark pipeline for LLM inference servers on Scaleway GPU.
 The orchestrator (FastAPI) queues runs, provisions ephemeral GPU VMs via Terraform, executes [`llm-grill`](https://github.com/fisheatfish/llm-grill) on each, and publishes a consolidated leaderboard to S3.
 
-Architecture decisions: [`docs/adr/`](docs/adr/) — start with `001-automated-benchmark-site.md`.
-
 ---
 
 ## Stack
@@ -60,7 +58,6 @@ infra/
 runner/                # cloud-init / systemd runner on GPU VM
 
 scenarios/             # llm-grill scenario YAMLs
-docs/adr/              # versioned ADRs
 .github/workflows/     # bench.yml · ci-orchestrator.yml · ci-site.yml · deploy-site.yml · publish-catalogs.yml
 
 site/                  # static SvelteKit frontend (Cloudflare Pages)
@@ -202,7 +199,7 @@ Schema per entry:
 
 Force a full re-bench: trigger `bench` workflow manually with `force=true`.
 
-**Cross-cycle dedup lives on S3.** A model is considered "already benched" if `s3://${SCW_BUCKET}/results/<model-slug>/<engine>/latest.meta.json` exists (slug = `model.replace("/", "__")`). Postgres is ephemeral and not consulted for dedup. To re-bench a single model without `force=true`:
+**Cross-cycle dedup lives on S3.** A model is considered "already benched" if `s3://${SCW_BUCKET}/results/<model-slug>/<engine>/latest.meta.json` exists (slug = `model.replace("/", "__")`). Postgres is not consulted for dedup because it is wiped with the orchestrator VM on `terraform destroy` — S3 is the only store that survives across cycles. To re-bench a single model without `force=true`:
 
 ```bash
 aws s3 rm "s3://${SCW_BUCKET}/results/<slug>/<engine>/latest.meta.json" \
@@ -230,10 +227,11 @@ The orchestrator publishes four public-read JSON files at the bucket root. The f
 ## Frontend (`site/`)
 
 Static SvelteKit dashboard (single-page interactive scatter, vLLM vs llama.cpp).
-Decisions in [ADR 001d](docs/adr/001d-frontend-sveltekit.md): **adapter-static**,
-charting is **native Svelte SVG + d3-scale** (no LayerCake), **no Tailwind** (CSS
-tokens in `src/app.css`). It reads the four public S3 JSON files **at runtime** —
-no build-time data, no dependency on the orchestrator.
+**adapter-static**, charting is **native Svelte SVG + d3-scale** (no LayerCake — the scatter
+has bespoke features like concurrency trails and dual-engine overlay that LayerCake wouldn't
+reduce; d3-scale covers linear scales and nice ticks, the rest is plain Svelte SVG),
+**no Tailwind** (CSS tokens in `src/app.css`). It reads the four public S3 JSON files
+**at runtime** — no build-time data, no dependency on the orchestrator.
 
 - **Stack**: SvelteKit 2 + Svelte 5 (runes), TypeScript, d3-scale. Package manager: **npm**.
 - **Dev**: `cd site && make dev`. With no `VITE_DATA_BASE_URL`, it falls back to the
@@ -246,6 +244,18 @@ no build-time data, no dependency on the orchestrator.
   (`wrangler pages deploy build`), on `site/**` push or a successful `bench` run.
   Needs repo secrets `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` and the
   `VITE_DATA_BASE_URL` repo variable. PR checks: `ci-site.yml` (svelte-check + build).
+
+---
+
+## Design decisions
+
+**Terraform over Scaleway SDK for provisioning.** The orchestrator could call the Scaleway API directly, but Terraform is declarative — it handles failure cleanup (destroy is idempotent) and the infra config is versionable. The SDK path would require hand-rolling retry and teardown logic.
+
+**Python-only aggregation (`aggregation.py`), no JS counterpart.** `leaderboard.json` is pre-aggregated server-side; the frontend is a consumer, not a calculator. Duplicating percentile/TPOT logic in JS would mean two implementations that could diverge silently — CLI and site would show different numbers for the same data.
+
+**Hardcoded `models.yaml` over auto-discovery.** No HuggingFace crawler runs to find new models. The list is a deliberate editorial choice — it keeps GPU spend auditable and prevents a new popular model from triggering an unreviewed benchmark run.
+
+**Scaleway IAM scoping.** The `SCW_ACCESS_KEY` used in CI should belong to a dedicated IAM application scoped to a single Scaleway Project with instance-management permissions only, and a project-level quota of max 5 H100 instances. This caps blast radius if the key leaks.
 
 ---
 

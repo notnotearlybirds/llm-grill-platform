@@ -69,7 +69,6 @@ Edit [`orchestrator/models.yaml`](orchestrator/models.yaml) and open a PR. On me
 | File | Audience |
 |---|---|
 | [CLAUDE.md](CLAUDE.md) | full technical reference — architecture, env vars, endpoints, conventions |
-| [`docs/adr/`](docs/adr/) | architecture decision records |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | dev workflow |
 | [SECURITY.md](SECURITY.md) | vulnerability reporting |
 

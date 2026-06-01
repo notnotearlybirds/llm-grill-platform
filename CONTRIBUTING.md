@@ -26,7 +26,6 @@ cd orchestrator && make setup-dev
 ## Code conventions
 
 - **Hexagonal architecture** — strict naming: `Service` / `Adapter` / `Repository` / `Port`.
-  See [`docs/adr/`](docs/adr/) for rationale.
 - `from __future__ import annotations` in all modules.
 - Async everywhere in HTTP I/O (FastAPI + SQLAlchemy async).
 - Input validation via Pydantic — no defensive validation inside the core.
