@@ -8,9 +8,13 @@
 	} = $props();
 
 	const homeUrl = (() => {
+		if (import.meta.env.VITE_HOME_URL) return import.meta.env.VITE_HOME_URL;
 		if (!browser) return 'https://gireg.fr';
-		const h = window.location.hostname;
-		if (h.startsWith('llm-grill.')) return `${window.location.protocol}//${h.slice('llm-grill.'.length)}`;
+		const u = new URL(window.location.origin);
+		if (u.hostname.startsWith('llm-grill.')) {
+			u.hostname = u.hostname.slice('llm-grill.'.length);
+			return u.origin;
+		}
 		return 'https://gireg.fr';
 	})();
 </script>
