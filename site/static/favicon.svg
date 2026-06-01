@@ -1,1 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🔥</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <g fill="none" stroke="oklch(0.72 0.13 50)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 16C4 7 28 7 28 16"/>
+    <line x1="2" y1="16" x2="30" y2="16"/>
+    <line x1="10" y1="18" x2="6"  y2="30"/>
+    <line x1="22" y1="18" x2="26" y2="30"/>
+    <line x1="7"  y1="26" x2="25" y2="26"/>
+  </g>
+</svg>

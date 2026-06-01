@@ -39,19 +39,12 @@
 	let pinned = $state(new Set<string>());
 	let hovered = $state<string | null>(null);
 
-	let containerW = $state(1456);
-	let chartsEl = $state<HTMLElement | undefined>(undefined);
+	let containerW = $state(0);
 
 	onMount(() => {
 		fetchCatalogs()
 			.then((c) => (catalogs = c))
 			.catch((e) => (error = e instanceof Error ? e.message : String(e)));
-
-		const ro = new ResizeObserver((entries) => {
-			for (const e of entries) containerW = e.contentRect.width;
-		});
-		if (chartsEl) ro.observe(chartsEl);
-		return () => ro.disconnect();
 	});
 
 	const models = $derived(catalogs?.models ?? []);
@@ -102,9 +95,12 @@
 
 	// One column per engine (capped at 3 so charts stay legible), sized from the
 	// observed container width.
+	// containerW comes from bind:clientWidth on .charts (includes horizontal padding).
+	// Mirror the CSS breakpoint: < 900px → 1 column + 32px padding, else up to 3 + 48px.
 	const GAP = 16;
-	const cols = $derived(Math.min(Math.max(engineGroups.length, 1), 3));
-	const chartW = $derived(Math.floor((containerW - GAP * (cols - 1)) / cols));
+	const cols = $derived(containerW > 0 && containerW < 900 ? 1 : Math.min(Math.max(engineGroups.length, 1), 3));
+	const hpad = $derived(containerW < 900 ? 32 : 48);
+	const chartW = $derived(containerW > 0 ? Math.floor((containerW - hpad - GAP * (cols - 1)) / cols) : 0);
 	const chartH = $derived(Math.floor(Math.max(360, Math.min(620, chartW * 0.72))));
 
 	// Tooltip(s): the hovered row wins; otherwise show every pinned row so two models
@@ -185,7 +181,7 @@
 			onTrails={setTrails}
 		/>
 
-		<section class="charts" bind:this={chartsEl} style="grid-template-columns: repeat({cols}, 1fr)">
+		<section class="charts" bind:clientWidth={containerW} style="grid-template-columns: repeat({cols}, 1fr)">
 			{#each engineGroups as g (g.engine)}
 				<div class="chart-card">
 					<div class="chart-head">
@@ -193,7 +189,7 @@
 						{#if g.sub}<span class="chart-sub">{g.sub}</span>{/if}
 						<span class="chart-count">{g.rows.length} pts</span>
 					</div>
-					<Scatter
+					{#if chartW > 0}<Scatter
 						data={g.rows}
 						{xKey}
 						{yKey}
@@ -207,7 +203,7 @@
 						label={trails
 							? `${g.label} · load curve`
 							: `${g.label} · concurrency = ${concLabel}`}
-					/>
+					/>{/if}
 				</div>
 			{/each}
 

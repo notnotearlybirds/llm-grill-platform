@@ -7,8 +7,8 @@ help:
 	grep -E '^\.PHONY: [a-zA-Z_-]+ .*?## .*$$' $(MAKEFILE_LIST) \
 		| sort | awk 'BEGIN {FS = "(: |##)"}; {printf "• \033[36m%-30s\033[0m %s\n", $$2, $$3}'
 
-.PHONY: setup ## 📦 Install node dependencies (npm ci)
-setup:
+.PHONY: install ## 📦 Install node dependencies (npm ci)
+install:
 	npm ci
 
 .PHONY: dev ## 🚀 Run the dev server (uses static/sample/ unless VITE_DATA_BASE_URL is set)
