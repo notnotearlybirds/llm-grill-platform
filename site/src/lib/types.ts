@@ -1,5 +1,5 @@
 // Shapes of the three public JSON files the orchestrator publishes to S3.
-// See orchestrator CLAUDE.md § "Public S3 artifacts" and docs/frontend-plan.md.
+// See orchestrator CLAUDE.md § "Public S3 artifacts".
 
 /** One ramp level inside a leaderboard row's `per_concurrency`. */
 export interface ConcurrencyPoint {

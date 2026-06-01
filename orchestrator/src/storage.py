@@ -247,7 +247,7 @@ async def _upload_public_json(key: str, payload: str) -> str:
     """Write a public-read JSON object at the bucket root.
 
     Public so the static frontend can fetch it directly from S3 without going
-    through the orchestrator (see docs/frontend-plan.md).
+    through the orchestrator.
     """
     client = _client()
     await asyncio.to_thread(
