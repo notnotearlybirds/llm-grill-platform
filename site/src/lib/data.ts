@@ -14,7 +14,7 @@ import type {
 
 // In prod, VITE_DATA_BASE_URL points at the S3 bucket root. In dev with no env,
 // fall back to bundled fixtures under static/sample/.
-const BASE = import.meta.env.VITE_DATA_BASE_URL ?? '/sample';
+const BASE = import.meta.env.VITE_DATA_BASE_URL || '/sample';
 
 export interface Catalogs {
 	leaderboard: LeaderboardRow[];
