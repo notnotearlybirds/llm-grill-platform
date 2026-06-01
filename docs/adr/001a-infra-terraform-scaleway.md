@@ -8,7 +8,7 @@
 
 ## Context
 
-The nightly pipeline needs H100 GPU instances to run benchmarks. Requirements:
+The pipeline needs H100 GPU instances to run benchmarks. Requirements:
 
 - Provisioned on demand (no permanent infra).
 - Full SSH access (for `nvidia-smi`, GPU monitoring).

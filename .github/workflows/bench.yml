@@ -51,7 +51,7 @@ jobs:
     needs: preflight
     if: ${{ needs.preflight.outputs.pending != '0' }}
     runs-on: ubuntu-latest
-    environment: production
+    environment: bench
     outputs:
       vm_ip: ${{ steps.tf_output.outputs.vm_ip }}
 
