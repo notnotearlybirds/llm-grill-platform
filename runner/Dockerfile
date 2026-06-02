@@ -30,11 +30,15 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends \
     git cmake build-essential libcurl4-openssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
+RUN ln -sf /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1
+
 RUN git clone --depth 1 --branch master https://github.com/ggml-org/llama.cpp /opt/llama.cpp \
     && cmake -S /opt/llama.cpp -B /opt/llama.cpp/build \
         -DGGML_CUDA=ON \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
+        -DCMAKE_EXE_LINKER_FLAGS="-L/usr/local/cuda/lib64/stubs" \
+        -DCMAKE_SHARED_LINKER_FLAGS="-L/usr/local/cuda/lib64/stubs" \
     && cmake --build /opt/llama.cpp/build --target llama-server -j$(nproc) \
     && ln -sf /opt/llama.cpp/build/bin/llama-server /usr/local/bin/llama-server \
     && rm -rf /opt/llama.cpp/.git
