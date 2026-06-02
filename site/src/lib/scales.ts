@@ -32,5 +32,5 @@ export function colorScale(v: number): string {
 
 /** Point radius from a size value (sqrt scale), honouring the point-scale tweak. */
 export function radius(v: number, sMin: number, sMax: number, pointScale = 1): number {
-	return 3 + Math.sqrt((v - sMin) / Math.max(1, sMax - sMin)) * 14 * pointScale;
+	return 5 + Math.sqrt((v - sMin) / Math.max(1, sMax - sMin)) * 18 * pointScale;
 }

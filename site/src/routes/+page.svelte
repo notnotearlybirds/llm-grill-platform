@@ -6,7 +6,7 @@
 	import Scatter from '$lib/components/Scatter.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Footer from '$lib/components/Footer.svelte';
-	import { fetchCatalogs, buildView, engineSub, engineGpu, type Catalogs } from '$lib/data';
+	import { fetchCatalogs, buildView, engineGpu, type Catalogs } from '$lib/data';
 	import type { MetricKey } from '$lib/metrics';
 	import type { ConcurrencyLevel, ViewRow } from '$lib/types';
 
@@ -35,6 +35,7 @@
 	}
 	let activeCats = $state(new Set<string>());
 	let activeBrands = $state(new Set<string>());
+	let activeEngines = $state(new Set<string>());
 	let search = $state('');
 	let pinned = $state(new Set<string>());
 	let hovered = $state<string | null>(null);
@@ -60,6 +61,7 @@
 	function matches(r: ViewRow): boolean {
 		if (activeCats.size > 0 && !r.categories.some((c) => activeCats.has(c))) return false;
 		if (activeBrands.size > 0 && !activeBrands.has(r.brand)) return false;
+		if (activeEngines.size > 0 && !activeEngines.has(r.engine)) return false;
 		if (search) {
 			const q = search.toLowerCase();
 			if (!r.name.toLowerCase().includes(q) && !r.model.toLowerCase().includes(q)) return false;
@@ -70,38 +72,20 @@
 	const filtered = $derived(view.filter(matches));
 	const benchedModelIds = $derived(new Set(view.map((r) => r.model)));
 	const totalModels = $derived(benchedModelIds.size);
-	const visibleModels = $derived(new Set(filtered.map((r) => r.model)).size);
 
-	// Engine columns are driven by engines.json (label + order from the backend Engine
-	// enum) — no hardcoded vllm/llamacpp here. Subtitle (GPU/quant) is derived per group
-	// from the actual rows, since the backend doesn't know the GPU until runs complete.
-	const engineGroups = $derived(
-		(catalogs?.engines ?? []).map((e) => {
-			const engineRows = view.filter((r) => r.engine === e.id);
-			return {
-				engine: e.id,
-				label: e.label,
-				rows: filtered.filter((r) => r.engine === e.id),
-				sub: engineSub(engineRows),
-				gpu: engineGpu(engineRows)
-			};
-		})
+	// Shape encoding: engine index in engines.json → shape index (0=circle, 1=diamond, 2=triangle).
+	const engines = $derived(catalogs?.engines ?? []);
+	const shapeMap = $derived(new Map(engines.map((e, i) => [e.id, i])));
+
+	// Header stats derived directly — no engineGroups needed.
+	const headerEngines = $derived(
+		engines.map((e) => ({ label: e.label, gpu: engineGpu(view.filter((r) => r.engine === e.id)) }))
 	);
 
-	// Header stats are fully derived: the backend count and per-engine GPU come from
-	// engines.json + observed leaderboard rows, so a new engine/hardware surfaces with
-	// no frontend change. GPU is empty until that engine has completed runs.
-	const headerEngines = $derived(engineGroups.map((g) => ({ label: g.label, gpu: g.gpu })));
-
-	// One column per engine (capped at 3 so charts stay legible), sized from the
-	// observed container width.
-	// containerW comes from bind:clientWidth on .charts (includes horizontal padding).
-	// Mirror the CSS breakpoint: < 900px → 1 column + 32px padding, else up to 3 + 48px.
-	const GAP = 16;
-	const cols = $derived(containerW > 0 && containerW < 900 ? 1 : Math.min(Math.max(engineGroups.length, 1), 3));
+	// Single chart sizing.
 	const hpad = $derived(containerW < 900 ? 32 : 48);
-	const chartW = $derived(containerW > 0 ? Math.floor((containerW - hpad - GAP * (cols - 1)) / cols) : 0);
-	const chartH = $derived(Math.floor(Math.max(360, Math.min(620, chartW * 0.72))));
+	const chartW = $derived(containerW > 0 ? containerW - hpad : 0);
+	const chartH = $derived(Math.floor(Math.max(400, Math.min(700, chartW * 0.58))));
 
 	// Tooltip(s): the hovered row wins; otherwise show every pinned row so two models
 	// can be compared side by side (single-pin gave no comparison before).
@@ -141,6 +125,7 @@
 	}
 	const onToggleCat = (c: string) => (activeCats = toggle(activeCats, c));
 	const onToggleBrand = (b: string) => (activeBrands = toggle(activeBrands, b));
+	const onToggleEngine = (id: string) => (activeEngines = toggle(activeEngines, id));
 	const onPin = (id: string) => (pinned = toggle(pinned, id));
 	const concLabel = $derived(concurrency === 'agg' ? 'all' : concurrency);
 </script>
@@ -161,7 +146,6 @@
 			{activeCats}
 			{activeBrands}
 			{search}
-			{visibleModels}
 			pinnedCount={pinned.size}
 			{onToggleCat}
 			{onToggleBrand}
@@ -175,37 +159,32 @@
 			{concurrency}
 			{trails}
 			{concurrencyLevels}
+			{engines}
+			{activeEngines}
 			onX={(k) => (xKey = k)}
 			onY={(k) => (yKey = k)}
 			onConcurrency={(c) => (concurrency = c)}
 			onTrails={setTrails}
+			{onToggleEngine}
 		/>
 
-		<section class="charts" bind:clientWidth={containerW} style="grid-template-columns: repeat({cols}, 1fr)">
-			{#each engineGroups as g (g.engine)}
-				<div class="chart-card">
-					<div class="chart-head">
-						<span class="chart-title">{g.label}</span>
-						{#if g.sub}<span class="chart-sub">{g.sub}</span>{/if}
-						<span class="chart-count">{g.rows.length} pts</span>
-					</div>
-					{#if chartW > 0}<Scatter
-						data={g.rows}
-						{xKey}
-						{yKey}
-						{trails}
-						width={chartW}
-						height={chartH}
-						{pinned}
-						{hovered}
-						onHover={(id) => (hovered = id)}
-						{onPin}
-						label={trails
-							? `${g.label} · load curve`
-							: `${g.label} · concurrency = ${concLabel}`}
-					/>{/if}
-				</div>
-			{/each}
+		<section class="charts" bind:clientWidth={containerW}>
+			{#if chartW > 0}
+				<Scatter
+					data={filtered}
+					{xKey}
+					{yKey}
+					{trails}
+					{shapeMap}
+					width={chartW}
+					height={chartH}
+					{pinned}
+					{hovered}
+					onHover={(id) => (hovered = id)}
+					{onPin}
+					label={trails ? 'load curve' : `concurrency = ${concLabel}`}
+				/>
+			{/if}
 
 			{#if tooltipRows.length}
 				<div class="tooltip-wrap">

@@ -28,12 +28,12 @@ export interface Metric {
 
 export const METRICS: Metric[] = [
 	{ key: 'concurrency', label: 'Concurrency', unit: 'users', lowerIsBetter: false, trailsOnly: true },
-	{ key: 'ttft_mean', label: 'TTFT mean', unit: 'ms', lowerIsBetter: true },
-	{ key: 'ttft_p95', label: 'TTFT p95', unit: 'ms', lowerIsBetter: true },
-	{ key: 'ttft_p50', label: 'TTFT p50', unit: 'ms', lowerIsBetter: true },
-	{ key: 'tpot_mean', label: 'TPOT mean', unit: 'ms/tok', lowerIsBetter: true },
-	{ key: 'e2e_mean', label: 'E2E mean', unit: 'ms', lowerIsBetter: true },
-	{ key: 'e2e_p95', label: 'E2E p95', unit: 'ms', lowerIsBetter: true },
+	{ key: 'ttft_mean', label: 'TTFT mean', unit: 's', lowerIsBetter: true },
+	{ key: 'ttft_p95', label: 'TTFT p95', unit: 's', lowerIsBetter: true },
+	{ key: 'ttft_p50', label: 'TTFT p50', unit: 's', lowerIsBetter: true },
+	{ key: 'tpot_mean', label: 'TPOT mean', unit: 's/tok', lowerIsBetter: true },
+	{ key: 'e2e_mean', label: 'E2E mean', unit: 's', lowerIsBetter: true },
+	{ key: 'e2e_p95', label: 'E2E p95', unit: 's', lowerIsBetter: true },
 	{ key: 'tokens_per_sec', label: 'Throughput', unit: 'tok/s', lowerIsBetter: false },
 	{ key: 'total_tokens_per_sec', label: 'Total throughput', unit: 'tok/s', lowerIsBetter: false },
 	{ key: 'success_rate', label: 'Success rate', unit: '', lowerIsBetter: false },
@@ -55,5 +55,6 @@ export function formatTick(v: number, key: MetricKey): string {
 	if (key === 'success_rate') return `${(v * 100).toFixed(0)}%`;
 	if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(1)}k`;
 	if (Number.isInteger(v) || Math.abs(v) >= 10) return v.toFixed(0);
-	return v.toFixed(1);
+	if (Math.abs(v) >= 0.1) return v.toFixed(1);
+	return v.toFixed(2);
 }

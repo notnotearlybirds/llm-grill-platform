@@ -17,7 +17,11 @@
 		onPin,
 		showGrid = true,
 		label = '',
-		trails = false
+		trails = false,
+		sharedSizeMin,
+		sharedSizeMax,
+		sharedXDomain,
+		shapeMap
 	}: {
 		data: ViewRow[];
 		xKey: MetricKey;
@@ -32,6 +36,11 @@
 		showGrid?: boolean;
 		label?: string;
 		trails?: boolean;
+		sharedSizeMin?: number;
+		sharedSizeMax?: number;
+		sharedXDomain?: [number, number];
+		/** engine id → shape index: 0 = circle, 1 = diamond, 2 = triangle */
+		shapeMap?: Map<string, number>;
 	} = $props();
 
 	const padding = { top: 14, right: 18, bottom: 38, left: 52 };
@@ -63,11 +72,11 @@
 		})()
 	);
 
-	const xDomain = $derived(paddedDomain(allPoints.map((p) => p.x)));
+	const xDomain = $derived(sharedXDomain ?? paddedDomain(allPoints.map((p) => p.x)));
 	const yDomain = $derived(paddedDomain(allPoints.map((p) => p.y)));
 	const sizes = $derived(allPoints.map((p) => p.s).filter((s): s is number => s !== undefined));
-	const sMin = $derived(sizes.length ? Math.min(...sizes) : 1);
-	const sMax = $derived(sizes.length ? Math.max(...sizes) : 1);
+	const sMin = $derived(sharedSizeMin ?? (sizes.length ? Math.min(...sizes) : 1));
+	const sMax = $derived(sharedSizeMax ?? (sizes.length ? Math.max(...sizes) : 1));
 
 	const xScale = $derived(linear(xDomain, [padding.left, padding.left + iw]));
 	const yScale = $derived(linear(yDomain, [padding.top + ih, padding.top]));
@@ -130,7 +139,7 @@
 </script>
 
 {#if noMarks}
-	<div class="status" style="min-height:{height}px">no runs for this view yet</div>
+	<div class="status" style="width:{width}px;height:{height}px">no runs for this view yet</div>
 {:else}
 	<svg {width} {height} style="display:block">
 	<text x={padding.left} y={padding.top - 2} fill="var(--text-3)" font-size="10" font-family="var(--mono)">{label}</text>
@@ -185,47 +194,64 @@
 					{#each pts as p, i (i)}
 						<circle cx={p[0]} cy={p[1]} r={isActive(d.id) ? 2.4 : 1.6} fill={colorScale(d.success_rate)} opacity="0.85" />
 					{/each}
-					{#if isActive(d.id) && pts.length}
-						{@const last = pts[pts.length - 1]}
-						<text x={last[0] + 6} y={last[1] + 3} fill="var(--text)" font-size="10.5" font-family="var(--mono)" style="pointer-events:none">{d.name}</text>
-					{/if}
 				</g>
 			{/each}
 		</g>
 	{:else}
 	<g>
 		{#each points as d (d.id)}
-			<g style="opacity:{isDim(d.id) ? 0.18 : 1};transition:opacity 120ms ease">
-				<circle
-					cx={xScale(val(d, xKey))}
-					cy={yScale(val(d, yKey))}
-					r={r(d)}
-					fill="var(--accent)"
-					fill-opacity={isActive(d.id) ? 0.95 : 0.72}
-					stroke={isActive(d.id) ? 'var(--text)' : 'var(--point-stroke)'}
-					stroke-width={isActive(d.id) ? 1.5 : 1}
-					style="cursor:pointer;transition:fill-opacity 120ms,stroke 120ms"
-					role="button"
-					tabindex="0"
-					aria-label={d.name}
-					onmouseenter={() => onHover(d.id)}
-					onmouseleave={() => onHover(null)}
-					onfocus={() => onHover(d.id)}
-					onblur={() => onHover(null)}
-					onclick={() => onPin(d.id)}
-					onkeydown={(e) => onKey(e, d.id)}
-				>
-					<title>{d.name}</title>
-				</circle>
-				{#if isActive(d.id)}
-					<text
-						x={xScale(val(d, xKey)) + r(d) + 6}
-						y={yScale(val(d, yKey)) + 3}
-						fill="var(--text)"
-						font-size="10.5"
-						font-family="var(--mono)"
-						style="pointer-events:none">{d.name}</text
-					>
+			{@const px = xScale(val(d, xKey))}
+			{@const py = yScale(val(d, yKey))}
+			{@const pr = r(d)}
+			{@const shape = shapeMap?.get(d.engine) ?? 0}
+			{@const active = isActive(d.id)}
+			<g
+				style="opacity:{isDim(d.id) ? 0.18 : 1};transition:opacity 120ms ease;cursor:pointer"
+				role="button"
+				tabindex="0"
+				aria-label={d.name}
+				onmouseenter={() => onHover(d.id)}
+				onmouseleave={() => onHover(null)}
+				onfocus={() => onHover(d.id)}
+				onblur={() => onHover(null)}
+				onclick={() => onPin(d.id)}
+				onkeydown={(e) => onKey(e, d.id)}
+			>
+				<title>{d.name}</title>
+				{#if shape === 1}
+					{@const dp = pr * 1.25}
+					<polygon
+						points="{px},{py - dp} {px + dp},{py} {px},{py + dp} {px - dp},{py}"
+						fill="var(--accent)"
+						fill-opacity={active ? 0.95 : 0.72}
+						stroke={active ? 'var(--text)' : 'var(--point-stroke)'}
+						stroke-width={active ? 1.5 : 1}
+						style="transition:fill-opacity 120ms,stroke 120ms"
+					/>
+				{:else if shape === 2}
+					{@const tp = pr * 1.56}
+					<polygon
+						points="{px},{py - tp} {px + tp * 0.866},{py + tp * 0.5} {px - tp * 0.866},{py + tp * 0.5}"
+						fill="var(--accent)"
+						fill-opacity={active ? 0.95 : 0.72}
+						stroke={active ? 'var(--text)' : 'var(--point-stroke)'}
+						stroke-width={active ? 1.5 : 1}
+						style="transition:fill-opacity 120ms,stroke 120ms"
+					/>
+				{:else}
+					<circle
+						cx={px}
+						cy={py}
+						r={pr}
+						fill="var(--accent)"
+						fill-opacity={active ? 0.95 : 0.72}
+						stroke={active ? 'var(--text)' : 'var(--point-stroke)'}
+						stroke-width={active ? 1.5 : 1}
+						style="transition:fill-opacity 120ms,stroke 120ms"
+					/>
+				{/if}
+				{#if active}
+					<text x={px + pr + 6} y={py + 3} fill="var(--text)" font-size="10.5" font-family="var(--mono)" style="pointer-events:none">{d.name}</text>
 				{/if}
 			</g>
 		{/each}
@@ -233,3 +259,12 @@
 	{/if}
 	</svg>
 {/if}
+
+<style>
+	/* Remove the browser's default rectangular focus ring on SVG interactive elements.
+	   Keyboard users still get the model highlight + label via onfocus/onkeydown. */
+	circle:focus,
+	g:focus {
+		outline: none;
+	}
+</style>

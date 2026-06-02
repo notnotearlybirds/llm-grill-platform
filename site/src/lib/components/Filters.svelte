@@ -9,7 +9,6 @@
 		activeCats,
 		activeBrands,
 		search,
-		visibleModels,
 		pinnedCount,
 		onToggleCat,
 		onToggleBrand,
@@ -23,7 +22,6 @@
 		activeCats: Set<string>;
 		activeBrands: Set<string>;
 		search: string;
-		visibleModels: number;
 		pinnedCount: number;
 		onToggleCat: (c: string) => void;
 		onToggleBrand: (b: string) => void;
@@ -97,7 +95,6 @@
 			{/if}
 		</div>
 		<div class="filter-status">
-			<span class="filter-n">{visibleModels}</span> / {searchedTotal} models
 			{#if pinnedCount > 0}
 				<button class="clear-pin" onclick={onClearPins}>clear {pinnedCount} pinned</button>
 			{/if}

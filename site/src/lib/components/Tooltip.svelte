@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { pointAt, perConcurrency } from '$lib/data';
+	import { pointAt } from '$lib/data';
 	import { fmtMs } from '$lib/metrics';
-	import { colorScale } from '$lib/scales';
 	import type { ConcurrencyLevel, ViewRow } from '$lib/types';
 
 	let { row, concurrency }: { row: ViewRow; concurrency: ConcurrencyLevel } = $props();
@@ -9,22 +8,6 @@
 	const isAgg = $derived(concurrency === 'agg');
 	const pt = $derived(pointAt(row._row, concurrency));
 
-	// Mini sparkline of TTFT vs concurrency (shown in aggregate mode).
-	const W = 110;
-	const H = 28;
-	const PAD = 2;
-	const trail = $derived(
-		(() => {
-			const ttfts = perConcurrency(row._row).map((p) => p.ttft_mean_s);
-			if (ttfts.length < 2) return null;
-			const min = Math.min(...ttfts);
-			const max = Math.max(...ttfts);
-			const n = ttfts.length;
-			const x = (i: number) => PAD + (i / (n - 1)) * (W - 2 * PAD);
-			const y = (v: number) => PAD + (1 - (v - min) / Math.max(max - min, 1e-6)) * (H - 2 * PAD);
-			return ttfts.map((v, i) => [x(i), y(v)] as const);
-		})()
-	);
 </script>
 
 <div class="tooltip">
@@ -61,20 +44,4 @@
 		<div><span class="tt-label">Success</span><span class="tt-v">{(pt.success_rate * 100).toFixed(1)}%</span></div>
 		<div><span class="tt-label">Requests</span><span class="tt-v">{pt.n_requests.toLocaleString()}</span></div>
 	</div>
-	{#if isAgg && trail}
-		<div class="tt-mini">
-			<span class="tt-mini-l">degradation</span>
-			<svg width={W} height={H} class="tt-mini-svg">
-				<polyline
-					fill="none"
-					stroke={colorScale(row.success_rate)}
-					stroke-width="1.2"
-					points={trail.map((p) => p.join(',')).join(' ')}
-				/>
-				{#each trail as p, i (i)}
-					<circle cx={p[0]} cy={p[1]} r="1.6" fill={colorScale(row.success_rate)} />
-				{/each}
-			</svg>
-		</div>
-	{/if}
 </div>
