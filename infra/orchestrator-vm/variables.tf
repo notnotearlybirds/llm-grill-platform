@@ -31,3 +31,9 @@ variable "results_bucket_name" {
   type        = string
   default     = "llmgrill-results"
 }
+
+variable "orchestrator_image" {
+  description = "Scaleway image ID for the pre-baked orchestrator VM"
+  type        = string
+  default     = "ubuntu_noble"
+}

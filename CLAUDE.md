@@ -127,6 +127,8 @@ All runtime config flows through env vars (see `.env.example`). Key vars:
 | `SSH_PUBLIC_KEYS` | CSV pubkeys injected on every GPU VM |
 | `RUN_RUNNING_TIMEOUT_MINUTES` | Watchdog kill threshold |
 | `POSTGRES_*` | DB connection |
+| `DOCKER_IMAGE_VLLM` | Docker image URI for vllm runner |
+| `DOCKER_IMAGE_LLAMACPP` | Docker image URI for llama.cpp runner |
 
 ---
 

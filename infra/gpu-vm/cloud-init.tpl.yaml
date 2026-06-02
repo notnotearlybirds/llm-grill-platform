@@ -4,9 +4,6 @@ write_files:
   - path: /etc/llmgrill/env
     permissions: "0600"
     content: |
-      PATH=/opt/venv/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-      CUDA_HOME=/usr/local/cuda
-      LD_LIBRARY_PATH=/usr/local/cuda/lib64
       RUN_ID=${run_id}
       ORCHESTRATOR_URL=${orchestrator_url}
       HF_TOKEN=${hf_token}
@@ -21,27 +18,21 @@ write_files:
     content: |
       ${indent(6, scenario_content)}
 
-  - path: /opt/runner/runner.sh
-    permissions: "0755"
-    content: |
-      ${indent(6, runner_script)}
-
-  - path: /opt/runner/requirements.txt
-    permissions: "0644"
-    content: |
-      ${indent(6, requirements)}
-
   - path: /etc/systemd/system/llmgrill-runner.service
     content: |
       [Unit]
       Description=llm-grill benchmark runner
-      After=network-online.target
+      After=network-online.target docker.service
       Wants=network-online.target
+      Requires=docker.service
 
       [Service]
       Type=oneshot
-      EnvironmentFile=/etc/llmgrill/env
-      ExecStart=/opt/runner/runner.sh
+      ExecStart=docker run --rm --gpus all \
+        --env-file /etc/llmgrill/env \
+        -v /etc/llmgrill/scenario.yaml:/etc/llmgrill/scenario.yaml \
+        -v /opt/models:/opt/models \
+        ${docker_image}
       StandardOutput=journal
       StandardError=journal
 
@@ -50,22 +41,8 @@ write_files:
 
 runcmd:
   - nvidia-smi -pm 1
-  # CUDA toolkit (nvcc) — needed by vllm/flashinfer JIT kernel compilation.
-  # The Scaleway GPU image already ships the NVIDIA apt repo (cudatools.gpg)
-  # and a pre-created /usr/local/cuda → /usr/local/cuda-13.0 symlink, broken
-  # until the toolkit is installed.
-  - apt-get update -y
-  - apt-get install -y jq python3-pip python3.12-venv cuda-toolkit-13-0
-  - python3 -m venv /opt/venv
-  - /opt/venv/bin/pip install --upgrade pip
-  - /opt/venv/bin/pip install -r /opt/runner/requirements.txt
-%{ if engine == "vllm" ~}
-  - /opt/venv/bin/pip install vllm==0.19.1
-%{ else ~}
-  - apt-get install -y git cmake build-essential libcurl4-openssl-dev
-  - git clone --depth 1 --branch master https://github.com/ggml-org/llama.cpp /opt/llama.cpp
-  - cmake -S /opt/llama.cpp -B /opt/llama.cpp/build -DGGML_CUDA=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc
-  - cmake --build /opt/llama.cpp/build --target llama-server -j$(nproc)
-  - ln -sf /opt/llama.cpp/build/bin/llama-server /usr/local/bin/llama-server
-%{ endif ~}
+  - apt-get update -y && apt-get install -y nvidia-container-toolkit
+  - nvidia-ctk runtime configure --runtime=docker
+  - systemctl restart docker
+  - docker pull ${docker_image}
   - systemctl enable --now llmgrill-runner.service
