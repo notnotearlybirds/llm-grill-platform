@@ -66,7 +66,7 @@ resource "scaleway_instance_ip" "orchestrator" {}
 resource "scaleway_instance_server" "orchestrator" {
   name              = local.name
   type              = var.instance_type
-  image             = "ubuntu_noble"
+  image             = var.orchestrator_image
   zone              = var.zone
   ip_id             = scaleway_instance_ip.orchestrator.id
   security_group_id = scaleway_instance_security_group.orchestrator.id

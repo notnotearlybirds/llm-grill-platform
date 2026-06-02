@@ -81,6 +81,7 @@ jobs:
           SCW_DEFAULT_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
           TF_VAR_ssh_public_keys: '["${{ secrets.DEPLOY_SSH_PUBLIC_KEY }}"]'
           TF_VAR_admin_cidrs: '["0.0.0.0/0"]'
+          TF_VAR_orchestrator_image: ${{ vars.ORCHESTRATOR_IMAGE || 'ubuntu_noble' }}
         run: terraform apply -auto-approve
 
       - name: Get VM IP

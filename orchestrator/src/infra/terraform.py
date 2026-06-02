@@ -63,28 +63,27 @@ def _classify(stderr: str) -> TerraformError:
 
 
 def _find_repo_root() -> Path:
-    """Find the ancestor that holds infra/gpu-vm/runner.sh.
+    """Find the ancestor that holds infra/gpu-vm/
 
     Works both in local dev (repo root) and in the Docker image (/app), as long
     as the Dockerfile copies `infra/gpu-vm/` as a directory.
     """
     for parent in Path(__file__).resolve().parents:
-        if (parent / "infra" / "gpu-vm" / "runner.sh").is_file():
+        if (parent / "infra" / "gpu-vm" / "main.tf").is_file():
             return parent
-    raise RuntimeError("could not locate repo root (infra/gpu-vm/runner.sh not found)")
+    raise RuntimeError("could not locate repo root (infra/gpu-vm/main.tf not found)")
 
 
 _REPO_ROOT = _find_repo_root()
 _TERRAFORM_DIR = _REPO_ROOT / "infra" / "gpu-vm"
 _WORKSPACES_DIR = _TERRAFORM_DIR / "workspaces"
-_RUNNER_SCRIPT = _TERRAFORM_DIR / "runner.sh"
-_REQUIREMENTS = _TERRAFORM_DIR / "requirements.txt"
 _SCENARIOS_ROOT = _REPO_ROOT
 
 _INSTANCE_TYPE = {
     GpuType.L40S: "L40S-1-48G",
     GpuType.H100: "H100-1-80G",
 }
+
 
 
 def _workspace(run_id: uuid.UUID) -> Path:
@@ -114,8 +113,6 @@ async def provision_node(run: Run) -> tuple[str, str]:
         for f in _TERRAFORM_DIR.glob("*.tf"):
             shutil.copy(f, workspace)
         shutil.copy(_TERRAFORM_DIR / "cloud-init.tpl.yaml", workspace)
-        shutil.copy(_RUNNER_SCRIPT, workspace)
-        shutil.copy(_REQUIREMENTS, workspace)
 
     await asyncio.to_thread(_stage_workspace)
 
@@ -131,17 +128,23 @@ async def provision_node(run: Run) -> tuple[str, str]:
 
     # Non-secret vars written to file; secrets passed via -var flags to avoid disk exposure
     var_file = workspace / "terraform.tfvars"
+    docker_image = (
+        settings.docker_image_vllm
+        if run.engine.value == "vllm"
+        else settings.docker_image_llamacpp
+    )
     var_file_contents = (
-        f'run_id          = "{run_id}"\n'
-        f'gpu_type        = "{gpu_type.value}"\n'
-        f'instance_type   = "{_INSTANCE_TYPE[gpu_type]}"\n'
+        f'run_id           = "{run_id}"\n'
+        f'gpu_type         = "{gpu_type.value}"\n'
+        f'instance_type    = "{_INSTANCE_TYPE[gpu_type]}"\n'
         f'orchestrator_url = "{settings.orchestrator_url}"\n'
-        f'gpu_zone        = "{settings.gpu_zone}"\n'
-        f"ssh_public_keys = {ssh_keys_hcl}\n"
-        f'model           = "{run.model}"\n'
-        f'engine          = "{run.engine.value}"\n'
-        f'scenario_path   = "{run.scenario_path}"\n'
-        f'gguf_file       = "{run.gguf_file or ""}"\n'
+        f'gpu_zone         = "{settings.gpu_zone}"\n'
+        f"ssh_public_keys  = {ssh_keys_hcl}\n"
+        f'model            = "{run.model}"\n'
+        f'engine           = "{run.engine.value}"\n'
+        f'scenario_path    = "{run.scenario_path}"\n'
+        f'gguf_file        = "{run.gguf_file or ""}"\n'
+        f'docker_image     = "{docker_image}"\n'
         f"scenario_content = <<EOT_SCENARIO\n{scenario_content}\nEOT_SCENARIO\n"
     )
     await asyncio.to_thread(var_file.write_text, var_file_contents)

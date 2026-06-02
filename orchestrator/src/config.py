@@ -5,12 +5,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def _find_repo_root() -> Path:
-    """Ancestor holding infra/gpu-vm/runner.sh — repo root in dev and /app in Docker.
+    """Ancestor holding infra/gpu-vm/main.tf — repo root in dev and /app in Docker.
 
     Mirrors infra.terraform._find_repo_root; scenarios/ lives at this root.
     """
     for parent in Path(__file__).resolve().parents:
-        if (parent / "infra" / "gpu-vm" / "runner.sh").is_file():
+        if (parent / "infra" / "gpu-vm" / "main.tf").is_file():
             return parent
     return Path(__file__).resolve().parents[2]
 
@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     orchestrator_url: str = "http://localhost:8000"
     hf_token: str = ""
     gpu_zone: str = "fr-par-2"
+    # Docker image URIs for GPU runner containers
+    docker_image_vllm: str = "ghcr.io/llmgrill/llmgrill-runner-vllm:latest"
+    docker_image_llamacpp: str = "ghcr.io/llmgrill/llmgrill-runner-llamacpp:latest"
 
     # Scaleway Object Storage
     scw_bucket: str = "llmgrill-results"

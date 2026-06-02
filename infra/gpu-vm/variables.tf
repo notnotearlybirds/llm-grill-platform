@@ -76,3 +76,8 @@ variable "scenario_content" {
   description = "Raw YAML content of the llm-grill scenario to run"
   type        = string
 }
+
+variable "docker_image" {
+  description = "Docker image URI for the runner container"
+  type        = string
+}

@@ -1,4 +1,0 @@
-huggingface_hub==1.16.1
-llm-grill==0.1.4
-typer==0.25.0
-click==8.4.1
