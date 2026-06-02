@@ -28,4 +28,4 @@ runcmd:
       apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
       systemctl enable --now docker
     fi
-  - usermod -aG docker deploy
+  - getent group docker &>/dev/null && usermod -aG docker deploy || true
