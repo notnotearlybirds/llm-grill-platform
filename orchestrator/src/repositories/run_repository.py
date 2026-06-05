@@ -144,8 +144,20 @@ class RunRepository:
             await session.commit()
 
     @staticmethod
-    async def claim_running_timed_out(cutoff: datetime) -> list[uuid.UUID]:
-        """Transition timed-out `running` runs to `failed` and return their ids.
+    async def set_phase(run_id: uuid.UUID, phase: str) -> None:
+        async with db.AsyncSessionLocal() as session:
+            run = await session.get(Run, run_id)
+            if run is None:
+                raise ValueError(f"Run {run_id} not found")
+            run.current_phase = phase
+            run.phase_updated_at = datetime.now(timezone.utc)
+            await session.commit()
+
+    @staticmethod
+    async def claim_running_timed_out(
+        cutoff: datetime,
+    ) -> list[tuple[uuid.UUID, str | None]]:
+        """Transition timed-out `running` runs to `failed` and return (id, last_phase) pairs.
 
         Marks them failed in the same transaction as the SELECT so concurrent
         pollers can't both claim the same run. Caller is expected to release
@@ -158,14 +170,14 @@ class RunRepository:
                 .with_for_update(skip_locked=True)
             )
             runs = result.scalars().all()
-            ids = [r.id for r in runs]
+            pairs = [(r.id, r.current_phase) for r in runs]
             now = datetime.now(timezone.utc)
             for r in runs:
                 r.status = RunStatus.failed
                 r.ended_at = now
                 r.error_message = "timeout: claimed by reaper"
             await session.commit()
-            return ids
+            return pairs
 
     @staticmethod
     async def get_orphaned_provisioning() -> list[uuid.UUID]:

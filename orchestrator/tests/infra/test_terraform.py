@@ -45,7 +45,7 @@ class TestClassify:
         """
         stderr = (
             f"Error: scaleway-sdk-go: expected state running but found {found_state}:\n"
-            '  with scaleway_instance_server.gpu,'
+            "  with scaleway_instance_server.gpu,"
         )
         err = _classify(stderr)
         assert isinstance(err, ServerStartError)

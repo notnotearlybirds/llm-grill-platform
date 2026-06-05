@@ -497,7 +497,7 @@ class TestReapers:
         # Given
         rid = uuid.uuid4()
         mocker.patch.object(
-            orch.RunRepository, "claim_running_timed_out", return_value=[rid]
+            orch.RunRepository, "claim_running_timed_out", return_value=[(rid, None)]
         )
         release = mocker.patch.object(orch, "release_node")
         set_failed = mocker.patch.object(orch.RunRepository, "set_failed")

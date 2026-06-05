@@ -5,7 +5,7 @@ from fastapi import BackgroundTasks, HTTPException, status
 from src.models import RunStatus
 from src.orchestrator import release_node
 from src.repositories.node_repository import NodeRepository
-from src.schemas import RunComplete, RunCreate, RunFail, RunRead
+from src.schemas import RunComplete, RunCreate, RunFail, RunPhaseUpdate, RunRead
 from src.services.run_service import RunService
 
 
@@ -49,6 +49,11 @@ class RunController:
     ) -> RunRead:
         run = await RunService.fail(run_id, body.error_message)
         background_tasks.add_task(release_node, run_id)
+        return RunRead.model_validate(run)
+
+    @staticmethod
+    async def set_phase(run_id: uuid.UUID, body: RunPhaseUpdate) -> RunRead:
+        run = await RunService.set_phase(run_id, body.phase)
         return RunRead.model_validate(run)
 
     @staticmethod

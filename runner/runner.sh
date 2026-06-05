@@ -9,6 +9,7 @@ GGUF_FILE="${GGUF_FILE:-}"
 MODEL_DIR="/opt/models"
 ENGINE_PORT=8080
 ENGINE_PID=""
+PERIODIC_LOG_PID=""
 LOG_FILE="/var/log/llmgrill-runner.log"
 LOGS_UPLOADED=0
 
@@ -16,8 +17,7 @@ LOGS_UPLOADED=0
 : > "$LOG_FILE"
 exec > >(tee -a "$LOG_FILE") 2>&1
 
-upload_logs() {
-  [[ "$LOGS_UPLOADED" == "1" ]] && return 0
+_post_logs() {
   local size body tmp=""
   size=$(stat -c %s "$LOG_FILE" 2>/dev/null || echo 0)
   if [ "$size" -le 5242880 ]; then
@@ -33,8 +33,27 @@ upload_logs() {
     -H "$API_KEY_HEADER" -H "Content-Type: text/plain" \
     --data-binary "@$body" || true
   [[ -z "$tmp" ]] || rm -f "$tmp"
+}
+
+upload_logs() {
+  [[ "$LOGS_UPLOADED" == "1" ]] && return 0
+  _post_logs
   LOGS_UPLOADED=1
   return 0
+}
+
+_periodic_log_upload() {
+  while true; do
+    sleep 30
+    _post_logs
+  done
+}
+
+report_phase() {
+  curl -sf -X POST "${ORCHESTRATOR_URL}/runs/${RUN_ID}/phase" \
+    -H "Content-Type: application/json" \
+    -H "$API_KEY_HEADER" \
+    -d "$(jq -n --arg p "$1" '{phase: $p}')" || true
 }
 
 fail() {
@@ -44,6 +63,7 @@ fail() {
     -H "$API_KEY_HEADER" \
     -d "$(jq -n --arg msg "$1" '{error_message: $msg}')" || true
   [[ -n "$ENGINE_PID" ]] && kill "$ENGINE_PID" 2>/dev/null || true
+  [[ -n "$PERIODIC_LOG_PID" ]] && kill "$PERIODIC_LOG_PID" 2>/dev/null || true
   exit 1
 }
 
@@ -60,7 +80,11 @@ trap 'on_err "$LINENO" "$BASH_COMMAND" "$?"' ERR
 # Run params are injected via cloud-init into /etc/llmgrill/env (MODEL, ENGINE,
 # SCENARIO, GGUF_FILE). No round-trip to the orchestrator is needed at startup.
 
+_periodic_log_upload &
+PERIODIC_LOG_PID=$!
+
 # --- 1. Download model ---
+report_phase "downloading_model"
 mkdir -p "${MODEL_DIR}/${MODEL}"
 if [[ -n "$GGUF_FILE" ]]; then
   HF_TOKEN="$HF_TOKEN" hf download "$MODEL" "$GGUF_FILE" --local-dir "${MODEL_DIR}/${MODEL}"
@@ -69,6 +93,7 @@ else
 fi
 
 # --- 3. Start engine ---
+report_phase "starting_engine"
 if [[ "$ENGINE" == "vllm" ]]; then
   python3 -m vllm.entrypoints.openai.api_server \
     --model "${MODEL_DIR}/${MODEL}" \
@@ -88,6 +113,7 @@ else
 fi
 
 # --- 4. Healthcheck ---
+report_phase "healthcheck"
 DEADLINE=$(( $(date +%s) + 300 ))
 until curl -sf "http://localhost:${ENGINE_PORT}/health" > /dev/null; do
   [[ $(date +%s) -ge $DEADLINE ]] && fail "engine did not become healthy within 300s"
@@ -95,12 +121,14 @@ until curl -sf "http://localhost:${ENGINE_PORT}/health" > /dev/null; do
 done
 
 # --- 5. Warmup ---
+report_phase "warmup"
 curl -sf -X POST "http://localhost:${ENGINE_PORT}/v1/completions" \
   -H "Content-Type: application/json" \
   -d "$(jq -n --arg m "$MODEL" '{model:$m,prompt:"hello",max_tokens:1}')" > /dev/null
 
 # --- 6. Benchmark ---
 RESULTS_FILE=/tmp/llm-grill-platform.jsonl
+report_phase "benchmarking"
 llm-grill run "$SCENARIO" --output "$RESULTS_FILE"
 
 # --- 7. Report success ---
@@ -114,4 +142,5 @@ curl -sf -X POST "${ORCHESTRATOR_URL}/runs/${RUN_ID}/complete" \
 
 # --- 8. Cleanup ---
 kill "$ENGINE_PID" 2>/dev/null || true
+kill "$PERIODIC_LOG_PID" 2>/dev/null || true
 rm -rf "${MODEL_DIR:?}/${MODEL}"
