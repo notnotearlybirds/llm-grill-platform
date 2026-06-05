@@ -16,8 +16,40 @@ on:
         default: ""
 
 jobs:
-  # ── 0. Preflight: is there anything to bench? (S3 dedup, no VM/GPU) ──────────
+  # ── 0a. Bootstrap: ensure results bucket exists before preflight S3 check ────
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+          terraform_wrapper: false
+
+      - name: Terraform init
+        working-directory: infra/orchestrator-vm
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
+        run: terraform init
+
+      - name: Ensure results bucket exists
+        working-directory: infra/orchestrator-vm
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
+          SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
+          SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+          SCW_DEFAULT_ORGANIZATION_ID: ${{ secrets.SCW_ORGANIZATION_ID }}
+          SCW_DEFAULT_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
+          TF_VAR_ssh_public_keys: '["placeholder"]'
+          TF_VAR_admin_cidrs: '["127.0.0.1/32"]'
+        run: terraform apply -auto-approve -target=scaleway_object_bucket.results
+
+  # ── 0b. Preflight: is there anything to bench? (S3 dedup, no VM/GPU) ─────────
   preflight:
+    needs: bootstrap
     runs-on: ubuntu-latest
     outputs:
       pending: ${{ steps.count.outputs.pending }}

@@ -10,10 +10,10 @@ terraform {
 
   # Scaleway S3-compatible backend — bucket must exist before `terraform init`
   # Create it once manually:
-  #   aws s3api create-bucket --bucket llmgrill-tfstate --endpoint-url https://s3.fr-par.scw.cloud
+  #   aws s3api create-bucket --bucket llm-grill-platform-tfstate --endpoint-url https://s3.fr-par.scw.cloud
   # Then set env vars: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
   backend "s3" {
-    bucket                      = "llmgrill-tfstate"
+    bucket                      = "llm-grill-platform-tfstate"
     key                         = "infra/terraform.tfstate"
     region                      = "fr-par"
     endpoint                    = "https://s3.fr-par.scw.cloud"
