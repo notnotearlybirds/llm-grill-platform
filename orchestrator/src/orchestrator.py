@@ -192,17 +192,21 @@ async def recover_orphaned_provisioning() -> None:
         asyncio.create_task(_recover_orphaned_provisioning_run(run_id))
 
 
-async def _abort_stuck_running(run_id) -> None:
+async def _abort_stuck_running(run_id, last_phase: str | None) -> None:
+    phase_info = (
+        f" (last phase: {last_phase})" if last_phase else " (no phase reported)"
+    )
     logger.warning(
-        "run {} stuck in running for > {} min — force destroy",
+        "run {} stuck in running for > {} min — force destroy{}",
         run_id,
         settings.run_running_timeout_minutes,
+        phase_info,
     )
     await release_node(run_id)
     await RunRepository.set_failed(
         run_id,
         datetime.now(timezone.utc),
-        f"timeout: no /complete after {settings.run_running_timeout_minutes} min",
+        f"timeout: no /complete after {settings.run_running_timeout_minutes} min{phase_info}",
     )
 
 
@@ -211,8 +215,8 @@ async def reap_stuck_running() -> None:
         minutes=settings.run_running_timeout_minutes
     )
     stuck = await RunRepository.claim_running_timed_out(cutoff)
-    for run_id in stuck:
-        asyncio.create_task(_abort_stuck_running(run_id))
+    for run_id, last_phase in stuck:
+        asyncio.create_task(_abort_stuck_running(run_id, last_phase))
 
 
 async def _abort_stuck_provisioning(run_id) -> None:

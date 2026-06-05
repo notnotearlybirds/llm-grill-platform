@@ -239,12 +239,12 @@ class TestReapers:
         run = await _add_run(status=RunStatus.running, started_at=old)
 
         # When
-        ids = await RunRepository.claim_running_timed_out(
+        pairs = await RunRepository.claim_running_timed_out(
             datetime.now(timezone.utc) - timedelta(hours=1)
         )
 
         # Then
-        assert run.id in ids
+        assert run.id in [run_id for run_id, _ in pairs]
         assert (await _get(run.id)).status == RunStatus.failed
 
     async def test_get_orphaned_provisioning(self, session_factory):

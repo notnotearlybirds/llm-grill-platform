@@ -422,6 +422,100 @@ class TestRunCompletion:
         assert resp.status_code == 409
 
 
+class TestPhaseHeartbeat:
+    """Tests for POST /runs/{id}/phase."""
+
+    async def _create_running_run(self, client, session_factory) -> str:
+        resp = await client.post("/runs", json=SMALL_MODEL_PAYLOAD)
+        run_id = resp.json()["id"]
+        async with session_factory() as session:
+            run = await session.get(Run, uuid.UUID(run_id))
+            run.status = RunStatus.running
+            await session.commit()
+        return run_id
+
+    async def test_should_record_phase_on_running_run(self, client, session_factory):
+        """
+        Should persist the reported phase and timestamp on a running run.
+
+        Given: A running run
+        When: POST /runs/{id}/phase is called with phase='downloading_model'
+        Then: 200 with current_phase set and phase_updated_at populated
+        """
+        # Given
+        run_id = await self._create_running_run(client, session_factory)
+
+        # When
+        resp = await client.post(
+            f"/runs/{run_id}/phase", json={"phase": "downloading_model"}
+        )
+
+        # Then
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["current_phase"] == "downloading_model"
+        assert data["phase_updated_at"] is not None
+
+    async def test_should_update_phase_on_subsequent_calls(
+        self, client, session_factory
+    ):
+        """
+        Should overwrite current_phase when called multiple times.
+
+        Given: A running run that already reported 'downloading_model'
+        When: POST /runs/{id}/phase is called with phase='starting_engine'
+        Then: current_phase is 'starting_engine'
+        """
+        # Given
+        run_id = await self._create_running_run(client, session_factory)
+        await client.post(f"/runs/{run_id}/phase", json={"phase": "downloading_model"})
+
+        # When
+        resp = await client.post(
+            f"/runs/{run_id}/phase", json={"phase": "starting_engine"}
+        )
+
+        # Then
+        assert resp.status_code == 200
+        assert resp.json()["current_phase"] == "starting_engine"
+
+    async def test_should_reject_phase_on_non_running_run(self, client):
+        """
+        Should return 409 when reporting a phase for a queued run.
+
+        Given: A queued run (not yet running)
+        When: POST /runs/{id}/phase is called
+        Then: 409 Conflict
+        """
+        # Given
+        resp = await client.post("/runs", json=SMALL_MODEL_PAYLOAD)
+        run_id = resp.json()["id"]
+
+        # When
+        resp = await client.post(
+            f"/runs/{run_id}/phase", json={"phase": "benchmarking"}
+        )
+
+        # Then
+        assert resp.status_code == 409
+
+    async def test_should_return_404_for_unknown_run(self, client):
+        """
+        Should return 404 when reporting a phase for a non-existent run.
+
+        Given: No run with the given id
+        When: POST /runs/{id}/phase is called
+        Then: 404 Not Found
+        """
+        # When
+        resp = await client.post(
+            f"/runs/{uuid.uuid4()}/phase", json={"phase": "benchmarking"}
+        )
+
+        # Then
+        assert resp.status_code == 404
+
+
 class TestGpuRouting:
     """Unit tests for the GPU routing logic (threshold: < 26B → L40S, else H100)."""
 

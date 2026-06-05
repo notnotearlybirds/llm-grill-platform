@@ -79,6 +79,18 @@ class RunService:
         return updated
 
     @staticmethod
+    async def set_phase(run_id: uuid.UUID, phase: str) -> Run:
+        run = await RunRepository.get(run_id)
+        if run is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="run not found")
+        if run.status != RunStatus.running:
+            raise HTTPException(status.HTTP_409_CONFLICT, detail="run is not running")
+        await RunRepository.set_phase(run_id, phase)
+        updated = await RunRepository.get(run_id)
+        assert updated is not None
+        return updated
+
+    @staticmethod
     async def fail(run_id: uuid.UUID, error_message: str) -> Run:
         run = await RunRepository.get(run_id)
         if run is None:

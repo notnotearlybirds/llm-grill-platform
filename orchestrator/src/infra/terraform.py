@@ -85,7 +85,6 @@ _INSTANCE_TYPE = {
 }
 
 
-
 def _workspace(run_id: uuid.UUID) -> Path:
     return _WORKSPACES_DIR / str(run_id)
 

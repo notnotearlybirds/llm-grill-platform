@@ -8,7 +8,7 @@ from src.auth import require_api_key
 from src.controllers.run_controller import RunController
 from src.models import RunStatus
 from src.repositories.run_repository import RunRepository
-from src.schemas import RunComplete, RunCreate, RunFail, RunRead
+from src.schemas import RunComplete, RunCreate, RunFail, RunPhaseUpdate, RunRead
 from src.storage import fetch_logs
 
 router = APIRouter(prefix="/runs", tags=["runs"])
@@ -50,6 +50,15 @@ async def complete_run(
 )
 async def fail_run(run_id: uuid.UUID, body: RunFail, background_tasks: BackgroundTasks):
     return await RunController.fail(run_id, body, background_tasks)
+
+
+@router.post(
+    "/{run_id}/phase",
+    response_model=RunRead,
+    dependencies=[Depends(require_api_key)],
+)
+async def update_run_phase(run_id: uuid.UUID, body: RunPhaseUpdate):
+    return await RunController.set_phase(run_id, body)
 
 
 @router.post(
