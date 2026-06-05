@@ -149,6 +149,8 @@ class RunRepository:
             run = await session.get(Run, run_id)
             if run is None:
                 raise ValueError(f"Run {run_id} not found")
+            if run.status != RunStatus.running:
+                return  # reaper may have already claimed this run; silently ignore
             run.current_phase = phase
             run.phase_updated_at = datetime.now(timezone.utc)
             await session.commit()

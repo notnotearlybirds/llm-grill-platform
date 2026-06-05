@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime
+from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 from src.models import Engine, GpuType, NodeStatus, RunStatus
 
@@ -23,7 +24,7 @@ class RunFail(BaseModel):
 
 
 class RunPhaseUpdate(BaseModel):
-    phase: str
+    phase: Annotated[str, StringConstraints(min_length=1, strip_whitespace=True)]
 
 
 class RunRead(BaseModel):
