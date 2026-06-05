@@ -115,7 +115,7 @@ class TestResultsEndpoints:
         await _insert_result(session_factory, run_id)
         mocker.patch(
             "src.services.result_service.presigned_url",
-            return_value="https://s3.fr-par.scw.cloud/llmgrill-results/runs/fake/results.jsonl",
+            return_value="https://s3.fr-par.scw.cloud/llm-grill-platform/runs/fake/results.jsonl",
         )
 
         # When

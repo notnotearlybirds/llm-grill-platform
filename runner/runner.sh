@@ -100,7 +100,7 @@ curl -sf -X POST "http://localhost:${ENGINE_PORT}/v1/completions" \
   -d "$(jq -n --arg m "$MODEL" '{model:$m,prompt:"hello",max_tokens:1}')" > /dev/null
 
 # --- 6. Benchmark ---
-RESULTS_FILE=/tmp/llmgrill-results.jsonl
+RESULTS_FILE=/tmp/llm-grill-platform.jsonl
 llm-grill run "$SCENARIO" --output "$RESULTS_FILE"
 
 # --- 7. Report success ---

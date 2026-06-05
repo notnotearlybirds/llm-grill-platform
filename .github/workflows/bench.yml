@@ -45,6 +45,7 @@ jobs:
           SCW_DEFAULT_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
           TF_VAR_ssh_public_keys: '["placeholder"]'
           TF_VAR_admin_cidrs: '["127.0.0.1/32"]'
+          TF_VAR_results_bucket_name: ${{ vars.SCW_BUCKET }}
         run: terraform apply -auto-approve -target=scaleway_object_bucket.results
 
   # ── 0b. Preflight: is there anything to bench? (S3 dedup, no VM/GPU) ─────────
@@ -69,7 +70,7 @@ jobs:
           API_KEY: ${{ secrets.API_KEY }}
           SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
           SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
-          SCW_BUCKET: ${{ secrets.SCW_BUCKET }}
+          SCW_BUCKET: ${{ vars.SCW_BUCKET }}
           SCW_REGION: ${{ secrets.SCW_REGION }}
           FORCE: ${{ github.event.inputs.force || 'false' }}
           MODEL_FILTER: ${{ github.event.inputs.model || '' }}
@@ -113,6 +114,7 @@ jobs:
           SCW_DEFAULT_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
           TF_VAR_ssh_public_keys: '["${{ secrets.DEPLOY_SSH_PUBLIC_KEY }}"]'
           TF_VAR_admin_cidrs: '["0.0.0.0/0"]'
+          TF_VAR_results_bucket_name: ${{ vars.SCW_BUCKET }}
           TF_VAR_orchestrator_image: ${{ vars.ORCHESTRATOR_IMAGE || 'ubuntu_noble' }}
         run: terraform apply -auto-approve
 
@@ -175,7 +177,7 @@ jobs:
           SCW_SECRET_KEY=${{ secrets.SCW_SECRET_KEY }}
           SCW_DEFAULT_ORGANIZATION_ID: ${{ secrets.SCW_ORGANIZATION_ID }}
           SCW_DEFAULT_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
-          SCW_BUCKET=${{ secrets.SCW_BUCKET }}
+          SCW_BUCKET=${{ vars.SCW_BUCKET }}
           SCW_REGION=${{ secrets.SCW_REGION }}
           GPU_ZONE=${{ secrets.GPU_ZONE }}
           DEBUG=false

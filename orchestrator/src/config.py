@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     docker_image_llamacpp: str = "ghcr.io/llmgrill/llmgrill-runner-llamacpp:latest"
 
     # Scaleway Object Storage
-    scw_bucket: str = "llmgrill-results"
+    scw_bucket: str = "llm-grill-platform"
     scw_region: str = "fr-par"
     scw_access_key: str = ""
     scw_secret_key: str = ""

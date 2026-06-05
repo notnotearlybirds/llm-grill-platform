@@ -29,7 +29,7 @@ variable "admin_cidrs" {
 variable "results_bucket_name" {
   description = "Scaleway Object Storage bucket for per-run results + logs"
   type        = string
-  default     = "llmgrill-results"
+  default     = "llm-grill-platform"
 }
 
 variable "orchestrator_image" {
