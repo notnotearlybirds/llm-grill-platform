@@ -16,7 +16,7 @@ terraform {
     bucket                      = "llm-grill-platform-tfstate"
     key                         = "infra/terraform.tfstate"
     region                      = "fr-par"
-    endpoint                    = "https://s3.fr-par.scw.cloud"
+    endpoints                   = { s3 = "https://s3.fr-par.scw.cloud" }
     skip_credentials_validation = true
     skip_region_validation      = true
     skip_requesting_account_id  = true
