@@ -87,10 +87,16 @@ PERIODIC_LOG_PID=$!
 # --- 1. Download model ---
 report_phase "downloading_model"
 mkdir -p "${MODEL_DIR}/${MODEL}"
+_dl_rc=0
 if [[ -n "$GGUF_FILE" ]]; then
-  timeout "$DOWNLOAD_TIMEOUT_SECONDS" hf download "$MODEL" "$GGUF_FILE" --local-dir "${MODEL_DIR}/${MODEL}"
+  timeout "$DOWNLOAD_TIMEOUT_SECONDS" env HF_TOKEN="$HF_TOKEN" hf download "$MODEL" "$GGUF_FILE" --local-dir "${MODEL_DIR}/${MODEL}" || _dl_rc=$?
 else
-  timeout "$DOWNLOAD_TIMEOUT_SECONDS" hf download "$MODEL" --local-dir "${MODEL_DIR}/${MODEL}"
+  timeout "$DOWNLOAD_TIMEOUT_SECONDS" env HF_TOKEN="$HF_TOKEN" hf download "$MODEL" --local-dir "${MODEL_DIR}/${MODEL}" || _dl_rc=$?
+fi
+if [[ $_dl_rc -eq 124 ]]; then
+  fail "model download timed out after ${DOWNLOAD_TIMEOUT_SECONDS}s"
+elif [[ $_dl_rc -ne 0 ]]; then
+  fail "model download failed (exit ${_dl_rc})"
 fi
 
 # --- 3. Start engine ---
