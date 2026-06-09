@@ -126,25 +126,6 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
         run: echo "vm_ip=$(terraform output -raw public_ip)" >> "$GITHUB_OUTPUT"
 
-      - name: Debug cloud-init key
-        working-directory: infra/orchestrator-vm
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
-          TF_VAR_ssh_public_keys: '["${{ vars.DEPLOY_SSH_PUBLIC_KEY }}"]'
-        run: |
-          echo "=== TF_VAR_ssh_public_keys ==="
-          echo "$TF_VAR_ssh_public_keys"
-          echo "=== cloud-init key ==="
-          terraform show -json | python3 -c "
-          import sys, json
-          state = json.load(sys.stdin)
-          for r in state.get('values',{}).get('root_module',{}).get('resources',[]):
-              if r['type'] == 'scaleway_instance_server':
-                  ud = r['values'].get('user_data', {})
-                  print(ud.get('cloud-init','')[:800])
-          "
-
       - name: Setup SSH
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -160,7 +141,7 @@ jobs:
           echo "Waiting for SSH..."
           vm_ready=false
           for i in $(seq 1 30); do
-            if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 deploy@${VM_IP} "docker info > /dev/null 2>&1"; then
+            if ssh -vvv -o StrictHostKeyChecking=no -o ConnectTimeout=5 deploy@${VM_IP} "docker info > /dev/null 2>&1"; then
               echo "VM ready."
               ssh-keyscan -H ${VM_IP} >> ~/.ssh/known_hosts
               vm_ready=true
