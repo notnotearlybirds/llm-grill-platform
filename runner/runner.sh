@@ -6,6 +6,7 @@ set -euo pipefail
 ORCHESTRATOR_URL="${ORCHESTRATOR_URL%/}"
 API_KEY_HEADER="X-API-Key: ${ORCHESTRATOR_API_KEY:-}"
 GGUF_FILE="${GGUF_FILE:-}"
+DOWNLOAD_TIMEOUT_SECONDS="${DOWNLOAD_TIMEOUT_SECONDS:-1800}"
 MODEL_DIR="/opt/models"
 ENGINE_PORT=8080
 ENGINE_PID=""
@@ -87,9 +88,9 @@ PERIODIC_LOG_PID=$!
 report_phase "downloading_model"
 mkdir -p "${MODEL_DIR}/${MODEL}"
 if [[ -n "$GGUF_FILE" ]]; then
-  HF_TOKEN="$HF_TOKEN" hf download "$MODEL" "$GGUF_FILE" --local-dir "${MODEL_DIR}/${MODEL}"
+  timeout "$DOWNLOAD_TIMEOUT_SECONDS" hf download "$MODEL" "$GGUF_FILE" --local-dir "${MODEL_DIR}/${MODEL}"
 else
-  HF_TOKEN="$HF_TOKEN" hf download "$MODEL" --local-dir "${MODEL_DIR}/${MODEL}"
+  timeout "$DOWNLOAD_TIMEOUT_SECONDS" hf download "$MODEL" --local-dir "${MODEL_DIR}/${MODEL}"
 fi
 
 # --- 3. Start engine ---
