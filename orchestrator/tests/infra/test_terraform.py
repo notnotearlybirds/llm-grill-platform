@@ -62,7 +62,6 @@ def _fake_run(run_id: uuid.UUID, gpu_type: GpuType) -> Run:
         model_size_b=8,
         engine=Engine.vllm,
         gpu_type_required=gpu_type,
-        gpu_count=1,
         scenario_path="scenarios/basic_8b.yaml",
     )
 

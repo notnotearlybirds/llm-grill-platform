@@ -63,7 +63,7 @@ class TestRunCreation:
 
         Given: A valid run payload for an 8B model
         When: POST /runs is called
-        Then: 201 response with a UUID, status=queued, gpu_count=1
+        Then: 201 response with a UUID and status=queued
         """
         # When
         resp = await client.post("/runs", json=SMALL_MODEL_PAYLOAD)
@@ -73,7 +73,6 @@ class TestRunCreation:
         data = resp.json()
         assert data["status"] == "queued"
         assert uuid.UUID(data["id"])
-        assert data["gpu_count"] == 1
 
     async def test_should_auto_assign_gpu_type_from_model_size(self, client):
         """

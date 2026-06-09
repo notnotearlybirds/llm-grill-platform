@@ -57,7 +57,6 @@ async def provisioning_h100(session_factory):
         node = Node(
             id="gpu-h100-1",
             gpu_type=GpuType.H100,
-            gpu_count=1,
             status=NodeStatus.provisioning,
         )
         session.add(node)
@@ -72,7 +71,6 @@ async def provisioning_l40s(session_factory):
         node = Node(
             id="gpu-l40s-1",
             gpu_type=GpuType.L40S,
-            gpu_count=1,
             status=NodeStatus.provisioning,
         )
         session.add(node)
