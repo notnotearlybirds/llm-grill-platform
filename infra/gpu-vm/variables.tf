@@ -51,6 +51,19 @@ variable "ssh_public_keys" {
   default     = []
 }
 
+variable "admin_cidrs" {
+  description = "CIDRs allowed to SSH into the GPU VM (empty = all inbound dropped)"
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for cidr in var.admin_cidrs : can(cidrhost(cidr, 0))
+    ])
+    error_message = "All entries in admin_cidrs must be valid CIDR strings (e.g. 192.168.0.0/24)."
+  }
+}
+
 variable "model" {
   description = "HuggingFace model repo (e.g. meta-llama/Llama-3.1-8B-Instruct)"
   type        = string

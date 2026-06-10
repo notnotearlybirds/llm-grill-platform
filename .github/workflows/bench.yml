@@ -162,6 +162,14 @@ jobs:
           rsync -az --exclude='.git' --exclude='.venv' --exclude='__pycache__' \
             ./ deploy@${VM_IP}:~/llm-grill-platform/
 
+      - name: Derive per-cycle API key
+        env:
+          API_KEY_SEED: ${{ secrets.API_KEY }}
+        run: |
+          CYCLE_API_KEY=$(.github/scripts/derive-cycle-key.sh)
+          echo "::add-mask::$CYCLE_API_KEY"
+          echo "CYCLE_API_KEY=$CYCLE_API_KEY" >> "$GITHUB_ENV"
+
       - name: Write .env on VM
         env:
           VM_IP: ${{ steps.tf_output.outputs.vm_ip }}
@@ -171,15 +179,16 @@ jobs:
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_DB=${{ secrets.POSTGRES_DB }}
           ORCHESTRATOR_URL=http://${VM_IP}:8000
-          API_KEY=${{ secrets.API_KEY }}
+          API_KEY=${CYCLE_API_KEY}
           HF_TOKEN=${{ secrets.HF_TOKEN }}
           SCW_ACCESS_KEY=${{ secrets.SCW_ACCESS_KEY }}
           SCW_SECRET_KEY=${{ secrets.SCW_SECRET_KEY }}
-          SCW_DEFAULT_ORGANIZATION_ID: ${{ secrets.SCW_ORGANIZATION_ID }}
-          SCW_DEFAULT_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
+          SCW_DEFAULT_ORGANIZATION_ID=${{ secrets.SCW_ORGANIZATION_ID }}
+          SCW_DEFAULT_PROJECT_ID=${{ secrets.SCW_PROJECT_ID }}
           SCW_BUCKET=${{ vars.SCW_BUCKET }}
           SCW_REGION=${{ secrets.SCW_REGION }}
           GPU_ZONE=${{ secrets.GPU_ZONE }}
+          ADMIN_CIDRS=${{ vars.ADMIN_CIDRS || '' }}
           DEBUG=false
           EOF
 
@@ -224,10 +233,21 @@ jobs:
     timeout-minutes: 180
 
     steps:
+      - uses: actions/checkout@v4
+
+      # Same derivation as the provision job (a masked value can't cross jobs).
+      - name: Derive per-cycle API key
+        env:
+          API_KEY_SEED: ${{ secrets.API_KEY }}
+        run: |
+          CYCLE_API_KEY=$(.github/scripts/derive-cycle-key.sh)
+          echo "::add-mask::$CYCLE_API_KEY"
+          echo "CYCLE_API_KEY=$CYCLE_API_KEY" >> "$GITHUB_ENV"
+
       - name: Submit runs
         env:
           VM_IP: ${{ needs.provision.outputs.vm_ip }}
-          API_KEY: ${{ secrets.API_KEY }}
+          API_KEY: ${{ env.CYCLE_API_KEY }}
         run: |
           PARAMS="force=${{ github.event.inputs.force || 'false' }}"
           if [[ -n "${{ github.event.inputs.model }}" ]]; then

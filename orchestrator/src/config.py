@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     provision_max_attempts: int = 30
     # SSH public keys (comma-separated) injected on provisioned GPU VMs for debug access.
     ssh_public_keys: str = ""
+    # CIDRs (comma-separated) allowed to SSH into GPU VMs. Empty = all inbound dropped.
+    admin_cidrs: str = ""
     # Force-destroy a node if its run stays in "running" longer than this (minutes).
     run_running_timeout_minutes: int = 60
     # Fail a run if it stays in "provisioning" longer than this (minutes).
