@@ -130,11 +130,29 @@ async def _provision_under_permit(run_id, gpu_type_required) -> None:
 
 
 async def release_node(run_id) -> None:
-    try:
-        await destroy_node(run_id)
-    except Exception:
-        logger.exception("failed to destroy node for run {}", run_id)
-    await NodeRepository.set_down_by_run(run_id)
+    # Node is only marked down after a confirmed destroy. Leaving it busy on
+    # failure is intentional: recover_leaked_nodes will pick it up on restart
+    # and retry, rather than silently forgetting a live Scaleway VM.
+    for attempt in range(1, 4):
+        try:
+            await destroy_node(run_id)
+            await NodeRepository.set_down_by_run(run_id)
+            return
+        except Exception:
+            if attempt < 3:
+                wait = attempt * 30
+                logger.warning(
+                    "destroy attempt {}/3 failed for run {}, retrying in {}s",
+                    attempt,
+                    run_id,
+                    wait,
+                )
+                await asyncio.sleep(wait)
+            else:
+                logger.exception(
+                    "failed to destroy node for run {} after 3 attempts — VM may be leaking",
+                    run_id,
+                )
 
 
 async def recover_leaked_nodes() -> None:
