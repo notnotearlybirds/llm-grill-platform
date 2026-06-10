@@ -130,6 +130,9 @@ async def _provision_under_permit(run_id, gpu_type_required) -> None:
 
 
 async def release_node(run_id) -> None:
+    # Node is only marked down after a confirmed destroy. Leaving it busy on
+    # failure is intentional: recover_leaked_nodes will pick it up on restart
+    # and retry, rather than silently forgetting a live Scaleway VM.
     for attempt in range(1, 4):
         try:
             await destroy_node(run_id)

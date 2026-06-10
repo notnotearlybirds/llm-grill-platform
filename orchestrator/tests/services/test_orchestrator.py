@@ -82,16 +82,17 @@ class TestReleaseNode:
 
     async def test_should_not_raise_when_destroy_fails(self, session_factory, mocker):
         """
-        Should swallow destroy errors and still mark the node down.
+        Should swallow destroy errors and leave the node busy for reconciliation.
 
-        Given: destroy_node raises a RuntimeError
+        Given: destroy_node raises a RuntimeError on all attempts
         When: release_node is called
-        Then: No exception propagates, node is still marked down
+        Then: No exception propagates, node remains busy so get_leaked picks it up on restart
         """
         # Given
         mocker.patch(
             "src.orchestrator.destroy_node", side_effect=RuntimeError("timeout")
         )
+        mocker.patch("src.orchestrator.asyncio.sleep")
         run_id = await _create_run_with_node(session_factory)
 
         # When (should not raise)
@@ -100,7 +101,7 @@ class TestReleaseNode:
         # Then
         async with session_factory() as session:
             node = await session.get(Node, f"node-{run_id}")
-        assert node.status == NodeStatus.down
+        assert node.status == NodeStatus.busy
 
     async def test_should_do_nothing_when_no_node_found(self, session_factory, mocker):
         """
