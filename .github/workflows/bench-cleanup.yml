@@ -1,0 +1,43 @@
+name: bench-cleanup
+
+on:
+  workflow_run:
+    workflows: [bench]
+    types: [completed]
+
+jobs:
+  teardown:
+    if: github.event.workflow_run.conclusion == 'cancelled'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+          terraform_wrapper: false
+
+      - name: Terraform init
+        working-directory: infra/orchestrator-vm
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
+        run: terraform init
+
+      - name: Terraform destroy
+        working-directory: infra/orchestrator-vm
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
+          SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
+          SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+          TF_VAR_ssh_public_keys: '["${{ vars.DEPLOY_SSH_PUBLIC_KEY }}"]'
+          TF_VAR_admin_cidrs: '["0.0.0.0/0"]'
+          TF_VAR_results_bucket_name: ${{ vars.SCW_BUCKET }}
+          TF_VAR_orchestrator_image: ${{ vars.ORCHESTRATOR_IMAGE || 'ubuntu_noble' }}
+        run: |
+          terraform destroy -auto-approve \
+            -target=scaleway_instance_server.orchestrator \
+            -target=scaleway_instance_ip.orchestrator \
+            -target=scaleway_instance_security_group.orchestrator
