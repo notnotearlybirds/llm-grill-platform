@@ -133,7 +133,8 @@ async def release_node(run_id) -> None:
     for attempt in range(1, 4):
         try:
             await destroy_node(run_id)
-            break
+            await NodeRepository.set_down_by_run(run_id)
+            return
         except Exception:
             if attempt < 3:
                 wait = attempt * 30
@@ -149,7 +150,6 @@ async def release_node(run_id) -> None:
                     "failed to destroy node for run {} after 3 attempts — VM may be leaking",
                     run_id,
                 )
-    await NodeRepository.set_down_by_run(run_id)
 
 
 async def recover_leaked_nodes() -> None:

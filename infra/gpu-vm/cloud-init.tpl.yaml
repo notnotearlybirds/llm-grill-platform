@@ -26,7 +26,7 @@ write_files:
       curl -sf -X POST "$${ORCHESTRATOR_URL}/runs/$${RUN_ID}/fail" \
         -H "Content-Type: application/json" \
         -H "X-API-Key: $${ORCHESTRATOR_API_KEY}" \
-        -d "{\"error_message\": \"$1\"}" || true
+        -d "$(jq -n --arg msg "$1" '{error_message: $msg}')" || true
 
   - path: /etc/systemd/system/llmgrill-runner.service
     content: |
@@ -43,7 +43,7 @@ write_files:
         -v /etc/llmgrill/scenario.yaml:/etc/llmgrill/scenario.yaml \
         -v /opt/models:/opt/models \
         ${docker_image}
-      ExecStopPost=/bin/sh -c 'test "$EXIT_STATUS" = "0" || /etc/llmgrill/fail-report.sh "runner container exited with status $EXIT_STATUS"'
+      ExecStopPost=/bin/sh -c 'test "$SERVICE_RESULT" = "success" || /etc/llmgrill/fail-report.sh "runner exited: $SERVICE_RESULT (exit $EXIT_STATUS)"'
       StandardOutput=journal
       StandardError=journal
 
