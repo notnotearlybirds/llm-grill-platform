@@ -5,6 +5,7 @@ All subprocess calls are mocked. No real Terraform binary or workspace needed.
 """
 
 import json
+import re
 import uuid
 from pathlib import Path
 from unittest.mock import AsyncMock
@@ -140,7 +141,12 @@ class TestProvisionNode:
         tfvars = (
             tmp_path / "workspaces" / str(run_id) / "terraform.tfvars"
         ).read_text()
-        assert 'admin_cidrs      = ["203.0.113.7/32", "198.51.100.0/24"]' in tfvars
+        match = re.search(r"admin_cidrs\s*=\s*\[([^\]]*)\]", tfvars)
+        assert match is not None
+        assert re.findall(r'"([^"]*)"', match.group(1)) == [
+            "203.0.113.7/32",
+            "198.51.100.0/24",
+        ]
 
     async def test_should_raise_when_terraform_fails(self, tmp_path, mocker):
         """
