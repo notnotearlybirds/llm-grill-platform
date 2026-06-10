@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from src.config import settings
 from src.infra.terraform import (
     OutOfStockError,
     ScalewayAuthError,
@@ -112,6 +113,34 @@ class TestProvisionNode:
         # Then
         assert instance_id == "scw-abc123"
         assert public_ip == "1.2.3.4"
+
+    async def test_should_render_admin_cidrs_into_tfvars(self, tmp_path, mocker):
+        """
+        Should pass ADMIN_CIDRS through to the GPU VM security group variables.
+
+        Given: settings.admin_cidrs holds two comma-separated CIDRs
+        When: provision_node stages the workspace
+        Then: terraform.tfvars contains them as an HCL list
+        """
+        # Given
+        mocker.patch("src.infra.terraform._TERRAFORM_DIR", tmp_path)
+        mocker.patch("src.infra.terraform._WORKSPACES_DIR", tmp_path / "workspaces")
+        mocker.patch("src.infra.terraform._SCENARIOS_ROOT", tmp_path)
+        (tmp_path / "cloud-init.tpl.yaml").write_text("cloud-init")
+        (tmp_path / "scenarios").mkdir(exist_ok=True)
+        (tmp_path / "scenarios" / "basic_8b.yaml").write_text("model: ${MODEL}")
+        mocker.patch("src.infra.terraform._terraform", side_effect=_fake_terraform())
+        mocker.patch.object(settings, "admin_cidrs", "203.0.113.7/32, 198.51.100.0/24")
+        run_id = uuid.uuid4()
+
+        # When
+        await provision_node(_fake_run(run_id, GpuType.L40S))
+
+        # Then
+        tfvars = (
+            tmp_path / "workspaces" / str(run_id) / "terraform.tfvars"
+        ).read_text()
+        assert 'admin_cidrs      = ["203.0.113.7/32", "198.51.100.0/24"]' in tfvars
 
     async def test_should_raise_when_terraform_fails(self, tmp_path, mocker):
         """
