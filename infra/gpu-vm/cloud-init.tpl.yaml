@@ -52,7 +52,7 @@ write_files:
 
 runcmd:
   - nvidia-smi -pm 1
-  - apt-get update -y && apt-get install -y nvidia-container-toolkit
+  - apt-get update -y && apt-get install -y nvidia-container-toolkit jq
   - nvidia-ctk runtime configure --runtime=docker
   - systemctl restart docker
   - docker pull ${docker_image} || { /etc/llmgrill/fail-report.sh "docker pull failed: ${docker_image}"; exit 1; }
