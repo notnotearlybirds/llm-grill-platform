@@ -162,24 +162,32 @@ jobs:
           rsync -az --exclude='.git' --exclude='.venv' --exclude='__pycache__' \
             ./ deploy@${VM_IP}:~/llm-grill-platform/
 
+      # The orchestrator API key is derived per bench cycle from the repo secret
+      # + run id, so the value crossing the public internet (X-API-Key over HTTP)
+      # is worthless once the VM is destroyed. The bench job re-derives the same
+      # value instead of receiving it via job outputs (masked outputs are dropped).
       - name: Write .env on VM
         env:
           VM_IP: ${{ steps.tf_output.outputs.vm_ip }}
+          API_KEY_SEED: ${{ secrets.API_KEY }}
         run: |
+          CYCLE_API_KEY=$(printf '%s' "${API_KEY_SEED}:${{ github.run_id }}:${{ github.run_attempt }}" | sha256sum | cut -d' ' -f1)
+          echo "::add-mask::$CYCLE_API_KEY"
           ssh deploy@${VM_IP} "cat > ~/llm-grill-platform/.env" <<EOF
           POSTGRES_USER=${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_DB=${{ secrets.POSTGRES_DB }}
           ORCHESTRATOR_URL=http://${VM_IP}:8000
-          API_KEY=${{ secrets.API_KEY }}
+          API_KEY=${CYCLE_API_KEY}
           HF_TOKEN=${{ secrets.HF_TOKEN }}
           SCW_ACCESS_KEY=${{ secrets.SCW_ACCESS_KEY }}
           SCW_SECRET_KEY=${{ secrets.SCW_SECRET_KEY }}
-          SCW_DEFAULT_ORGANIZATION_ID: ${{ secrets.SCW_ORGANIZATION_ID }}
-          SCW_DEFAULT_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
+          SCW_DEFAULT_ORGANIZATION_ID=${{ secrets.SCW_ORGANIZATION_ID }}
+          SCW_DEFAULT_PROJECT_ID=${{ secrets.SCW_PROJECT_ID }}
           SCW_BUCKET=${{ vars.SCW_BUCKET }}
           SCW_REGION=${{ secrets.SCW_REGION }}
           GPU_ZONE=${{ secrets.GPU_ZONE }}
+          ADMIN_CIDRS=${{ vars.ADMIN_CIDRS || '' }}
           DEBUG=false
           EOF
 
@@ -227,8 +235,11 @@ jobs:
       - name: Submit runs
         env:
           VM_IP: ${{ needs.provision.outputs.vm_ip }}
-          API_KEY: ${{ secrets.API_KEY }}
+          API_KEY_SEED: ${{ secrets.API_KEY }}
         run: |
+          # Same per-cycle derivation as the "Write .env on VM" step.
+          API_KEY=$(printf '%s' "${API_KEY_SEED}:${{ github.run_id }}:${{ github.run_attempt }}" | sha256sum | cut -d' ' -f1)
+          echo "::add-mask::$API_KEY"
           PARAMS="force=${{ github.event.inputs.force || 'false' }}"
           if [[ -n "${{ github.event.inputs.model }}" ]]; then
             PARAMS="$PARAMS&model=${{ github.event.inputs.model }}"
