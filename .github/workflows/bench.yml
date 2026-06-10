@@ -162,17 +162,18 @@ jobs:
           rsync -az --exclude='.git' --exclude='.venv' --exclude='__pycache__' \
             ./ deploy@${VM_IP}:~/llm-grill-platform/
 
-      # The orchestrator API key is derived per bench cycle from the repo secret
-      # + run id, so the value crossing the public internet (X-API-Key over HTTP)
-      # is worthless once the VM is destroyed. The bench job re-derives the same
-      # value instead of receiving it via job outputs (masked outputs are dropped).
+      - name: Derive per-cycle API key
+        env:
+          API_KEY_SEED: ${{ secrets.API_KEY }}
+        run: |
+          CYCLE_API_KEY=$(.github/scripts/derive-cycle-key.sh)
+          echo "::add-mask::$CYCLE_API_KEY"
+          echo "CYCLE_API_KEY=$CYCLE_API_KEY" >> "$GITHUB_ENV"
+
       - name: Write .env on VM
         env:
           VM_IP: ${{ steps.tf_output.outputs.vm_ip }}
-          API_KEY_SEED: ${{ secrets.API_KEY }}
         run: |
-          CYCLE_API_KEY=$(printf '%s' "${API_KEY_SEED}:${{ github.run_id }}:${{ github.run_attempt }}" | sha256sum | cut -d' ' -f1)
-          echo "::add-mask::$CYCLE_API_KEY"
           ssh deploy@${VM_IP} "cat > ~/llm-grill-platform/.env" <<EOF
           POSTGRES_USER=${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
@@ -232,14 +233,22 @@ jobs:
     timeout-minutes: 180
 
     steps:
+      - uses: actions/checkout@v4
+
+      # Same derivation as the provision job (a masked value can't cross jobs).
+      - name: Derive per-cycle API key
+        env:
+          API_KEY_SEED: ${{ secrets.API_KEY }}
+        run: |
+          CYCLE_API_KEY=$(.github/scripts/derive-cycle-key.sh)
+          echo "::add-mask::$CYCLE_API_KEY"
+          echo "CYCLE_API_KEY=$CYCLE_API_KEY" >> "$GITHUB_ENV"
+
       - name: Submit runs
         env:
           VM_IP: ${{ needs.provision.outputs.vm_ip }}
-          API_KEY_SEED: ${{ secrets.API_KEY }}
+          API_KEY: ${{ env.CYCLE_API_KEY }}
         run: |
-          # Same per-cycle derivation as the "Write .env on VM" step.
-          API_KEY=$(printf '%s' "${API_KEY_SEED}:${{ github.run_id }}:${{ github.run_attempt }}" | sha256sum | cut -d' ' -f1)
-          echo "::add-mask::$API_KEY"
           PARAMS="force=${{ github.event.inputs.force || 'false' }}"
           if [[ -n "${{ github.event.inputs.model }}" ]]; then
             PARAMS="$PARAMS&model=${{ github.event.inputs.model }}"
