@@ -6,38 +6,33 @@ on:
     types: [completed]
 
 jobs:
-  teardown:
+  destroy-orphaned-gpu-vms:
     if: github.event.workflow_run.conclusion == 'cancelled'
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Install Scaleway CLI
+        run: |
+          curl -s https://raw.githubusercontent.com/scaleway/scaleway-cli/master/scripts/get.sh | sh
 
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "~1.6"
-          terraform_wrapper: false
-
-      - name: Terraform init
-        working-directory: infra/orchestrator-vm
+      - name: Destroy all llmgrill GPU VMs
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
-        run: terraform init
-
-      - name: Terraform destroy
-        working-directory: infra/orchestrator-vm
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
           SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
           SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
-          TF_VAR_ssh_public_keys: '["${{ vars.DEPLOY_SSH_PUBLIC_KEY }}"]'
-          TF_VAR_admin_cidrs: '["0.0.0.0/0"]'
-          TF_VAR_results_bucket_name: ${{ vars.SCW_BUCKET }}
-          TF_VAR_orchestrator_image: ${{ vars.ORCHESTRATOR_IMAGE || 'ubuntu_noble' }}
+          SCW_DEFAULT_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
+          SCW_DEFAULT_ORGANIZATION_ID: ${{ secrets.SCW_ORGANIZATION_ID }}
+          SCW_DEFAULT_REGION: ${{ secrets.SCW_REGION }}
+          GPU_ZONE: ${{ secrets.GPU_ZONE }}
         run: |
-          terraform destroy -auto-approve \
-            -target=scaleway_instance_server.orchestrator \
-            -target=scaleway_instance_ip.orchestrator \
-            -target=scaleway_instance_security_group.orchestrator
+          ids=$(scw instance server list zone="$GPU_ZONE" -o json \
+            | jq -r '.[] | select(.name | startswith("llmgrill-")) | .id')
+
+          if [ -z "$ids" ]; then
+            echo "No orphaned llmgrill GPU VMs found."
+            exit 0
+          fi
+
+          for id in $ids; do
+            echo "Terminating GPU VM $id..."
+            scw instance server terminate "$id" zone="$GPU_ZONE" with-ip=true with-block=true
+          done
