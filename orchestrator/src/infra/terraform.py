@@ -118,6 +118,9 @@ async def provision_node(run: Run) -> tuple[str, str]:
     ssh_keys = [k.strip() for k in settings.ssh_public_keys.split(",") if k.strip()]
     ssh_keys_hcl = "[" + ", ".join(f'"{k}"' for k in ssh_keys) + "]"
 
+    admin_cidrs = [c.strip() for c in settings.admin_cidrs.split(",") if c.strip()]
+    admin_cidrs_hcl = "[" + ", ".join(f'"{c}"' for c in admin_cidrs) + "]"
+
     scenario_file = (_SCENARIOS_ROOT / run.scenario_path).resolve()
     if not scenario_file.is_file():
         raise TerraformError(f"scenario file not found: {scenario_file}")
@@ -139,6 +142,7 @@ async def provision_node(run: Run) -> tuple[str, str]:
         f'orchestrator_url = "{settings.orchestrator_url}"\n'
         f'gpu_zone         = "{settings.gpu_zone}"\n'
         f"ssh_public_keys  = {ssh_keys_hcl}\n"
+        f"admin_cidrs      = {admin_cidrs_hcl}\n"
         f'model            = "{run.model}"\n'
         f'engine           = "{run.engine.value}"\n'
         f'scenario_path    = "{run.scenario_path}"\n'
