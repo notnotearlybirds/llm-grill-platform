@@ -94,3 +94,9 @@ variable "docker_image" {
   description = "Docker image URI for the runner container"
   type        = string
 }
+
+variable "download_timeout_seconds" {
+  description = "Maximum seconds to wait for a model download before aborting"
+  type        = number
+  default     = 1800
+}
