@@ -3,7 +3,8 @@ Tests for src.storage — model/engine-keyed S3 layout.
 
 Covers the helpers that drive cross-cycle deduplication:
 upload_results (+ latest.jsonl copy), upload_meta, head_latest_meta,
-and presigned_url. All boto3 calls are patched; no Scaleway credentials needed.
+presigned_url, and leaderboard updates. All boto3 calls are patched;
+no Scaleway credentials needed.
 """
 
 import json
@@ -14,12 +15,9 @@ from botocore.exceptions import ClientError
 
 from src.models import Engine, GpuType, Result, Run, RunStatus
 from src.storage import (
-    fetch_latest_results,
     fetch_leaderboard,
     fetch_logs,
     head_latest_meta,
-    list_completed,
-    presigned_logs_url,
     presigned_url,
     update_leaderboard_for,
     upload_engines_catalog,
@@ -242,27 +240,6 @@ class TestPresignedUrl:
         assert params["Key"] == f"results/{_SLUG}/vllm/runs/{run.id}/results.jsonl"
 
 
-class TestPresignedLogsUrl:
-    """presigned_logs_url signs the per-run runner.log key."""
-
-    async def test_should_sign_the_per_run_logs_key(self, mock_s3, run):
-        """
-        Given: A boto3 client returning a fake signed URL
-        When:  presigned_logs_url is called for a run
-        Then:  Returns that URL and signs the per-run runner.log key
-        """
-        # Given
-        mock_s3.generate_presigned_url.return_value = "https://signed/runner.log"
-
-        # When
-        url = await presigned_logs_url(run)
-
-        # Then
-        assert url == "https://signed/runner.log"
-        params = mock_s3.generate_presigned_url.call_args.kwargs["Params"]
-        assert params["Key"] == f"results/{_SLUG}/vllm/runs/{run.id}/runner.log"
-
-
 class TestUploadLogs:
     """upload_logs PUTs the runner log under the per-run prefix."""
 
@@ -328,98 +305,6 @@ class TestFetchLogs:
         # When / Then
         with pytest.raises(ClientError):
             await fetch_logs(run)
-
-
-class TestFetchLatestResults:
-    """fetch_latest_results downloads latest.jsonl or returns None."""
-
-    async def test_should_return_bytes_when_present(self, mock_s3):
-        """
-        Given: get_object returns the latest JSONL
-        When:  fetch_latest_results is called
-        Then:  Returns the raw bytes from the latest.jsonl key
-        """
-        # Given
-        mock_s3.get_object.return_value = {"Body": _body(b'{"x":1}')}
-
-        # When
-        out = await fetch_latest_results(_MODEL, Engine.vllm)
-
-        # Then
-        assert out == b'{"x":1}'
-        assert mock_s3.get_object.call_args.kwargs["Key"] == (
-            f"results/{_SLUG}/vllm/latest.jsonl"
-        )
-
-    async def test_should_return_none_when_missing(self, mock_s3):
-        """
-        Given: get_object raises a 404
-        When:  fetch_latest_results is called
-        Then:  Returns None
-        """
-        # Given
-        mock_s3.get_object.side_effect = ClientError(
-            {"Error": {"Code": "404", "Message": "nope"}}, "GetObject"
-        )
-
-        # When / Then
-        assert await fetch_latest_results(_MODEL, Engine.vllm) is None
-
-
-class TestListCompleted:
-    """list_completed scans results/ for every latest.meta.json."""
-
-    async def test_should_parse_only_latest_meta_objects(self, mock_s3, run):
-        """
-        Should ignore per-run artefacts and parse only latest.meta.json blobs.
-
-        Given: A paginator yielding a mix of keys, one of them latest.meta.json
-        When:  list_completed runs
-        Then:  Only the meta object is fetched and parsed into CompletedRunMeta
-        """
-        # Given
-        meta_key = f"results/{_SLUG}/vllm/latest.meta.json"
-        meta_body = json.dumps(
-            {
-                "run_id": str(run.id),
-                "model": _MODEL,
-                "engine": "vllm",
-                "scenario": "scenarios/ramp.yaml",
-                "completed_at": "2026-05-26T00:00:00+00:00",
-                "git_sha": "abc123",
-            }
-        ).encode()
-        paginator = mock_s3.get_paginator.return_value
-        paginator.paginate.return_value = [
-            {
-                "Contents": [
-                    {"Key": f"results/{_SLUG}/vllm/runs/{run.id}/results.jsonl"},
-                    {"Key": meta_key},
-                ]
-            }
-        ]
-        mock_s3.get_object.return_value = {"Body": _body(meta_body)}
-
-        # When
-        out = await list_completed()
-
-        # Then
-        assert len(out) == 1
-        assert out[0].model == _MODEL
-        assert out[0].engine == "vllm"
-        assert mock_s3.get_object.call_args.kwargs["Key"] == meta_key
-
-    async def test_should_return_empty_when_no_contents(self, mock_s3):
-        """
-        Given: A paginator page with no Contents
-        When:  list_completed runs
-        Then:  Returns an empty list
-        """
-        # Given
-        mock_s3.get_paginator.return_value.paginate.return_value = [{}]
-
-        # When / Then
-        assert await list_completed() == []
 
 
 class TestFetchLeaderboard:

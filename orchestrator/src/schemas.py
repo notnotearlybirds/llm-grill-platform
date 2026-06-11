@@ -34,7 +34,6 @@ class RunRead(BaseModel):
     model_size_b: int
     engine: Engine
     gpu_type_required: GpuType
-    gpu_count: int
     scenario_path: str
     gguf_file: str | None
     results_url: str | None
@@ -90,13 +89,11 @@ class CompletedRunMeta(BaseModel):
 class NodeCreate(BaseModel):
     id: str
     gpu_type: GpuType
-    gpu_count: int = Field(default=1, gt=0)
 
 
 class NodeRead(BaseModel):
     id: str
     gpu_type: GpuType
-    gpu_count: int
     status: NodeStatus
     ip_address: str | None
     current_run_id: uuid.UUID | None

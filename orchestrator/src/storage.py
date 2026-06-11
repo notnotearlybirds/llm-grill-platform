@@ -130,42 +130,6 @@ async def head_latest_meta(model: str, engine: Engine | str) -> bool:
     return await asyncio.to_thread(_head)
 
 
-async def list_completed() -> list[CompletedRunMeta]:
-    """List every (model, engine) that has a `latest.meta.json` on S3."""
-    client = _client()
-
-    def _list() -> list[CompletedRunMeta]:
-        paginator = client.get_paginator("list_objects_v2")
-        out: list[CompletedRunMeta] = []
-        for page in paginator.paginate(Bucket=settings.scw_bucket, Prefix="results/"):
-            for obj in page.get("Contents", []) or []:
-                key = obj["Key"]
-                if not key.endswith("/latest.meta.json"):
-                    continue
-                blob = client.get_object(Bucket=settings.scw_bucket, Key=key)
-                out.append(CompletedRunMeta.model_validate_json(blob["Body"].read()))
-        return out
-
-    return await asyncio.to_thread(_list)
-
-
-async def fetch_latest_results(model: str, engine: Engine | str) -> bytes | None:
-    """Download the JSONL for the latest completed run of (model, engine)."""
-    client = _client()
-    key = _latest_results_key(model, engine)
-
-    def _get() -> bytes | None:
-        try:
-            obj = client.get_object(Bucket=settings.scw_bucket, Key=key)
-            return obj["Body"].read()
-        except ClientError as exc:
-            if _is_not_found(exc):
-                return None
-            raise
-
-    return await asyncio.to_thread(_get)
-
-
 async def fetch_logs(run: Run) -> bytes | None:
     """Download runner log for a run. Returns None if the object doesn't exist."""
     client = _client()
@@ -311,14 +275,3 @@ async def presigned_url(run: Run, expires: int = 3600) -> str:
     )
 
 
-async def presigned_logs_url(run: Run, expires: int = 3600) -> str:
-    client = _client()
-    return await asyncio.to_thread(
-        client.generate_presigned_url,
-        "get_object",
-        Params={
-            "Bucket": settings.scw_bucket,
-            "Key": _run_logs_key(run.model, run.engine, run.id),
-        },
-        ExpiresIn=expires,
-    )

@@ -5,8 +5,8 @@ Covers: node registration, listing, retrieval, and deregistration.
 Node allocation is handled ephemerally by the orchestrator (see test_runs.py).
 """
 
-NODE_H100 = {"id": "gpu-h100-1", "gpu_type": "H100", "gpu_count": 1}
-NODE_L40S = {"id": "gpu-l40s-1", "gpu_type": "L40S", "gpu_count": 1}
+NODE_H100 = {"id": "gpu-h100-1", "gpu_type": "H100"}
+NODE_L40S = {"id": "gpu-l40s-1", "gpu_type": "L40S"}
 
 
 class TestNodeRegistration:

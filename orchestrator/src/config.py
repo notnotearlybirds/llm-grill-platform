@@ -53,6 +53,8 @@ class Settings(BaseSettings):
     # Docker image URIs for GPU runner containers
     docker_image_vllm: str = "ghcr.io/llmgrill/llmgrill-runner-vllm:latest"
     docker_image_llamacpp: str = "ghcr.io/llmgrill/llmgrill-runner-llamacpp:latest"
+    # Maximum seconds to wait for a model download before aborting the run.
+    download_timeout_seconds: int = 1800
 
     # Scaleway Object Storage
     scw_bucket: str = "llm-grill-platform"

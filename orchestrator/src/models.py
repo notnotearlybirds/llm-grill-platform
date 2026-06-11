@@ -55,7 +55,6 @@ class Node(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     gpu_type: Mapped[GpuType] = mapped_column(Enum(GpuType), nullable=False)
-    gpu_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     status: Mapped[NodeStatus] = mapped_column(
         Enum(NodeStatus), nullable=False, default=NodeStatus.provisioning
     )
@@ -74,7 +73,6 @@ class Run(Base):
     model_size_b: Mapped[int] = mapped_column(Integer, nullable=False)
     engine: Mapped[Engine] = mapped_column(Enum(Engine), nullable=False)
     gpu_type_required: Mapped[GpuType] = mapped_column(Enum(GpuType), nullable=False)
-    gpu_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     scenario_path: Mapped[str] = mapped_column(String, nullable=False)
     gguf_file: Mapped[str | None] = mapped_column(String, nullable=True)
     results_url: Mapped[str | None] = mapped_column(String, nullable=True)

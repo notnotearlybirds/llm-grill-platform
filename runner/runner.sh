@@ -6,6 +6,7 @@ set -euo pipefail
 ORCHESTRATOR_URL="${ORCHESTRATOR_URL%/}"
 API_KEY_HEADER="X-API-Key: ${ORCHESTRATOR_API_KEY:-}"
 GGUF_FILE="${GGUF_FILE:-}"
+DOWNLOAD_TIMEOUT_SECONDS="${DOWNLOAD_TIMEOUT_SECONDS:-1800}"
 MODEL_DIR="/opt/models"
 ENGINE_PORT=8080
 ENGINE_PID=""
@@ -86,10 +87,16 @@ PERIODIC_LOG_PID=$!
 # --- 1. Download model ---
 report_phase "downloading_model"
 mkdir -p "${MODEL_DIR}/${MODEL}"
+_dl_rc=0
 if [[ -n "$GGUF_FILE" ]]; then
-  HF_TOKEN="$HF_TOKEN" hf download "$MODEL" "$GGUF_FILE" --local-dir "${MODEL_DIR}/${MODEL}"
+  timeout -k 30 "$DOWNLOAD_TIMEOUT_SECONDS" env HF_TOKEN="$HF_TOKEN" hf download "$MODEL" "$GGUF_FILE" --local-dir "${MODEL_DIR}/${MODEL}" || _dl_rc=$?
 else
-  HF_TOKEN="$HF_TOKEN" hf download "$MODEL" --local-dir "${MODEL_DIR}/${MODEL}"
+  timeout -k 30 "$DOWNLOAD_TIMEOUT_SECONDS" env HF_TOKEN="$HF_TOKEN" hf download "$MODEL" --local-dir "${MODEL_DIR}/${MODEL}" || _dl_rc=$?
+fi
+if [[ $_dl_rc -eq 124 ]]; then
+  fail "model download timed out after ${DOWNLOAD_TIMEOUT_SECONDS}s"
+elif [[ $_dl_rc -ne 0 ]]; then
+  fail "model download failed (exit ${_dl_rc})"
 fi
 
 # --- 3. Start engine ---
