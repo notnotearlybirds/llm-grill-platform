@@ -85,6 +85,8 @@ make logs                     # tail orchestrator
 make vm-shell  RUN_ID=<uuid>  # SSH into a GPU VM
 make vm-logs   RUN_ID=<uuid>  # tail llmgrill-runner journal on a VM
 make run-logs  RUN_ID=<uuid>  # fetch S3-uploaded runner logs
+# vm-* / run-logs from a local machine: add ORCHESTRATOR_IP=<ip> to reach the
+# orchestrator API and jump SSH through the orchestrator VM (deploy@).
 ```
 
 ### `orchestrator/Makefile` — Python
@@ -125,7 +127,7 @@ All runtime config flows through env vars (see `.env.example`). Key vars:
 | `GPU_ZONE` | Scaleway zone for GPU VMs |
 | `ORCHESTRATOR_URL` | Public callback URL for GPU VMs |
 | `SSH_PUBLIC_KEYS` | CSV pubkeys injected on every GPU VM |
-| `ADMIN_CIDRS` | CSV CIDRs allowed to SSH into GPU VMs (empty = all inbound dropped) |
+| `ADMIN_CIDRS` | CSV CIDRs allowed to SSH into GPU VMs; the orchestrator VM IP (from `ORCHESTRATOR_URL`) is always added, enabling jump SSH (empty = no one else) |
 | `DOWNLOAD_TIMEOUT_SECONDS` | Max seconds for model download on GPU VM (default 1800) |
 | `RUN_RUNNING_TIMEOUT_MINUTES` | Watchdog kill threshold |
 | `POSTGRES_*` | DB connection |
