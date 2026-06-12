@@ -44,7 +44,7 @@ logs-all:
 # leave it unset (localhost, direct SSH).
 _ORCH_HOST = $(if $(ORCHESTRATOR_IP),$(ORCHESTRATOR_IP),localhost)
 _ORCH_API  = http://$(_ORCH_HOST):8000
-_SSH_JUMP  = $(if $(ORCHESTRATOR_IP),-J deploy@$(ORCHESTRATOR_IP),)
+_SSH_JUMP  = $(if $(ORCHESTRATOR_IP),-J root@$(ORCHESTRATOR_IP),)
 _SSH_OPTS  = -o StrictHostKeyChecking=accept-new $(_SSH_JUMP)
 
 .PHONY: vm-logs ## 🔍 Tail journalctl runner sur la VM d'un run (RUN_ID=<uuid> [ORCHESTRATOR_IP=<ip>])

@@ -2,8 +2,10 @@ ARG ENGINE=vllm
 
 FROM nvidia/cuda:13.0.0-devel-ubuntu24.04 AS base
 
+# curl + ca-certificates: runner.sh depends on curl for every orchestrator
+# callback (phase/fail/logs/complete) and the engine healthcheck loop.
 RUN apt-get update -y && apt-get install -y --no-install-recommends \
-    jq python3-pip python3.12-venv \
+    curl ca-certificates jq python3-pip python3.12-venv \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv /opt/venv \
