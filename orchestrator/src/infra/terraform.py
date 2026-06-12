@@ -79,6 +79,14 @@ _TERRAFORM_DIR = _REPO_ROOT / "infra" / "gpu-vm"
 _WORKSPACES_DIR = _TERRAFORM_DIR / "workspaces"
 _SCENARIOS_ROOT = _REPO_ROOT
 
+_IP_RE = re.compile(r"https?://(\d{1,3}(?:\.\d{1,3}){3})")
+
+
+def _extract_ip(url: str) -> str | None:
+    m = _IP_RE.match(url)
+    return m.group(1) if m else None
+
+
 _INSTANCE_TYPE = {
     GpuType.L40S: "L40S-1-48G",
     GpuType.H100: "H100-1-80G",
@@ -119,6 +127,12 @@ async def provision_node(run: Run) -> tuple[str, str]:
     ssh_keys_hcl = "[" + ", ".join(f'"{k}"' for k in ssh_keys) + "]"
 
     admin_cidrs = [c.strip() for c in settings.admin_cidrs.split(",") if c.strip()]
+    # The orchestrator VM doubles as the SSH jump host for GPU VM debugging
+    # (make vm-shell ORCHESTRATOR_IP=<ip>). Its IP is resolved from
+    # ORCHESTRATOR_URL, which only carries a literal IPv4 in CI deployments.
+    orchestrator_ip = _extract_ip(settings.orchestrator_url)
+    if orchestrator_ip and f"{orchestrator_ip}/32" not in admin_cidrs:
+        admin_cidrs.append(f"{orchestrator_ip}/32")
     admin_cidrs_hcl = "[" + ", ".join(f'"{c}"' for c in admin_cidrs) + "]"
 
     scenario_file = (_SCENARIOS_ROOT / run.scenario_path).resolve()

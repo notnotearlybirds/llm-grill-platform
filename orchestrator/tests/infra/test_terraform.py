@@ -147,6 +147,70 @@ class TestProvisionNode:
             "198.51.100.0/24",
         ]
 
+    @pytest.mark.parametrize(
+        ("orchestrator_url", "admin_cidrs", "expected"),
+        [
+            pytest.param(
+                "http://51.15.42.7:8000",
+                "",
+                ["51.15.42.7/32"],
+                id="appends-orchestrator-ip-when-no-admin-cidrs",
+            ),
+            pytest.param(
+                "http://51.15.42.7:8000",
+                "203.0.113.7/32",
+                ["203.0.113.7/32", "51.15.42.7/32"],
+                id="appends-orchestrator-ip-after-admin-cidrs",
+            ),
+            pytest.param(
+                "http://51.15.42.7:8000",
+                "51.15.42.7/32",
+                ["51.15.42.7/32"],
+                id="does-not-duplicate-orchestrator-ip",
+            ),
+            pytest.param(
+                "https://orchestrator.example.com",
+                "203.0.113.7/32",
+                ["203.0.113.7/32"],
+                id="skips-hostname-urls",
+            ),
+        ],
+    )
+    async def test_should_allow_orchestrator_ip_in_admin_cidrs(
+        self, tmp_path, mocker, orchestrator_url, admin_cidrs, expected
+    ):
+        """
+        Should auto-allow the orchestrator VM IP so it can jump-SSH into GPU VMs.
+
+        Given: ORCHESTRATOR_URL carrying a literal IP (or a hostname) and
+               optional ADMIN_CIDRS
+        When: provision_node stages the workspace
+        Then: terraform.tfvars admin_cidrs contains the orchestrator /32
+              exactly once when the URL holds an IP, and is untouched otherwise
+        """
+        # Given
+        mocker.patch("src.infra.terraform._TERRAFORM_DIR", tmp_path)
+        mocker.patch("src.infra.terraform._WORKSPACES_DIR", tmp_path / "workspaces")
+        mocker.patch("src.infra.terraform._SCENARIOS_ROOT", tmp_path)
+        (tmp_path / "cloud-init.tpl.yaml").write_text("cloud-init")
+        (tmp_path / "scenarios").mkdir(exist_ok=True)
+        (tmp_path / "scenarios" / "basic_8b.yaml").write_text("model: ${MODEL}")
+        mocker.patch("src.infra.terraform._terraform", side_effect=_fake_terraform())
+        mocker.patch.object(settings, "orchestrator_url", orchestrator_url)
+        mocker.patch.object(settings, "admin_cidrs", admin_cidrs)
+        run_id = uuid.uuid4()
+
+        # When
+        await provision_node(_fake_run(run_id, GpuType.L40S))
+
+        # Then
+        tfvars = (
+            tmp_path / "workspaces" / str(run_id) / "terraform.tfvars"
+        ).read_text()
+        match = re.search(r"admin_cidrs\s*=\s*\[([^\]]*)\]", tfvars)
+        assert match is not None
+        assert re.findall(r'"([^"]*)"', match.group(1)) == expected
+
     async def test_should_raise_when_terraform_fails(self, tmp_path, mocker):
         """
         Should propagate RuntimeError when terraform apply exits non-zero.

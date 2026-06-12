@@ -38,31 +38,40 @@ logs:
 logs-all:
 	$(COMPOSE_BASE) logs -f
 
-.PHONY: vm-logs ## 🔍 Tail journalctl runner sur la VM d'un run (RUN_ID=<uuid>)
+# GPU VM inbound SSH only accepts the admin CIDRs + the orchestrator VM IP.
+# From your local machine, set ORCHESTRATOR_IP=<ip> to reach the orchestrator
+# API and jump SSH through the VM (deploy@). On the orchestrator VM itself,
+# leave it unset (localhost, direct SSH).
+_ORCH_HOST = $(if $(ORCHESTRATOR_IP),$(ORCHESTRATOR_IP),localhost)
+_ORCH_API  = http://$(_ORCH_HOST):8000
+_SSH_JUMP  = $(if $(ORCHESTRATOR_IP),-J deploy@$(ORCHESTRATOR_IP),)
+_SSH_OPTS  = -o StrictHostKeyChecking=accept-new $(_SSH_JUMP)
+
+.PHONY: vm-logs ## 🔍 Tail journalctl runner sur la VM d'un run (RUN_ID=<uuid> [ORCHESTRATOR_IP=<ip>])
 vm-logs:
-	@test -n "$(RUN_ID)" || { echo "usage: make vm-logs RUN_ID=<uuid>"; exit 1; }
-	@IP=$$(curl -sf http://localhost:8000/runs/$(RUN_ID) | jq -r '.node_ip // empty'); \
+	@test -n "$(RUN_ID)" || { echo "usage: make vm-logs RUN_ID=<uuid> [ORCHESTRATOR_IP=<ip>]"; exit 1; }
+	@IP=$$(curl -sf $(_ORCH_API)/runs/$(RUN_ID) | jq -r '.node_ip // empty'); \
 	 test -n "$$IP" || { echo "no node ip for run $(RUN_ID)"; exit 1; }; \
-	 echo "→ ssh root@$$IP"; \
-	 ssh -o StrictHostKeyChecking=accept-new root@$$IP "journalctl -u llmgrill-runner -f"
+	 echo "→ ssh $(_SSH_JUMP) root@$$IP"; \
+	 ssh $(_SSH_OPTS) root@$$IP "journalctl -u llmgrill-runner -f"
 
-.PHONY: vm-cloud-init ## 🔍 Tail cloud-init logs sur la VM d'un run (RUN_ID=<uuid>)
+.PHONY: vm-cloud-init ## 🔍 Tail cloud-init logs sur la VM d'un run (RUN_ID=<uuid> [ORCHESTRATOR_IP=<ip>])
 vm-cloud-init:
-	@test -n "$(RUN_ID)" || { echo "usage: make vm-cloud-init RUN_ID=<uuid>"; exit 1; }
-	@IP=$$(curl -sf http://localhost:8000/runs/$(RUN_ID) | jq -r '.node_ip // empty'); \
+	@test -n "$(RUN_ID)" || { echo "usage: make vm-cloud-init RUN_ID=<uuid> [ORCHESTRATOR_IP=<ip>]"; exit 1; }
+	@IP=$$(curl -sf $(_ORCH_API)/runs/$(RUN_ID) | jq -r '.node_ip // empty'); \
 	 test -n "$$IP" || { echo "no node ip for run $(RUN_ID)"; exit 1; }; \
-	 echo "→ ssh root@$$IP"; \
-	 ssh -o StrictHostKeyChecking=accept-new root@$$IP "tail -f /var/log/cloud-init-output.log"
+	 echo "→ ssh $(_SSH_JUMP) root@$$IP"; \
+	 ssh $(_SSH_OPTS) root@$$IP "tail -f /var/log/cloud-init-output.log"
 
-.PHONY: vm-shell ## 🖥  SSH dans la VM d'un run (RUN_ID=<uuid>)
+.PHONY: vm-shell ## 🖥  SSH dans la VM d'un run (RUN_ID=<uuid> [ORCHESTRATOR_IP=<ip>])
 vm-shell:
-	@test -n "$(RUN_ID)" || { echo "usage: make vm-shell RUN_ID=<uuid>"; exit 1; }
-	@IP=$$(curl -sf http://localhost:8000/runs/$(RUN_ID) | jq -r '.node_ip // empty'); \
+	@test -n "$(RUN_ID)" || { echo "usage: make vm-shell RUN_ID=<uuid> [ORCHESTRATOR_IP=<ip>]"; exit 1; }
+	@IP=$$(curl -sf $(_ORCH_API)/runs/$(RUN_ID) | jq -r '.node_ip // empty'); \
 	 test -n "$$IP" || { echo "no node ip for run $(RUN_ID)"; exit 1; }; \
-	 echo "→ ssh root@$$IP"; \
-	 ssh -o StrictHostKeyChecking=accept-new root@$$IP
+	 echo "→ ssh $(_SSH_JUMP) root@$$IP"; \
+	 ssh $(_SSH_OPTS) root@$$IP
 
-.PHONY: run-logs ## 📜 Affiche les logs S3 d'un run (RUN_ID=<uuid>)
+.PHONY: run-logs ## 📜 Affiche les logs S3 d'un run (RUN_ID=<uuid> [ORCHESTRATOR_IP=<ip>])
 run-logs:
-	@test -n "$(RUN_ID)" || { echo "usage: make run-logs RUN_ID=<uuid>"; exit 1; }
-	@curl -sf http://localhost:8000/runs/$(RUN_ID)/logs || echo "no logs uploaded yet"
+	@test -n "$(RUN_ID)" || { echo "usage: make run-logs RUN_ID=<uuid> [ORCHESTRATOR_IP=<ip>]"; exit 1; }
+	@curl -sf $(_ORCH_API)/runs/$(RUN_ID)/logs || echo "no logs uploaded yet"
