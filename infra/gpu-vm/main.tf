@@ -52,8 +52,9 @@ resource "scaleway_instance_server" "gpu" {
       engine               = var.engine
       scenario_path        = var.scenario_path
       gguf_file            = var.gguf_file
-      scenario_content     = var.scenario_content
-      docker_image         = var.docker_image
+      scenario_content          = var.scenario_content
+      docker_image              = var.docker_image
+      download_timeout_seconds  = var.download_timeout_seconds
     })
   }
 }
