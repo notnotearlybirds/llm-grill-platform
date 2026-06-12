@@ -47,6 +47,12 @@ _ORCH_API  = http://$(_ORCH_HOST):8000
 _SSH_JUMP  = $(if $(ORCHESTRATOR_IP),-J root@$(ORCHESTRATOR_IP),)
 _SSH_OPTS  = -o StrictHostKeyChecking=accept-new $(_SSH_JUMP)
 
+.PHONY: runs ## 📇 Liste les runs et leurs RUN_ID ([STATUS=<état>] [ORCHESTRATOR_IP=<ip>])
+runs:
+	@curl -sf "$(_ORCH_API)/runs$(if $(STATUS),?status=$(STATUS),)" | \
+	 jq -r '["RUN_ID","STATUS","PHASE","ENGINE","NODE_IP","MODEL"], (sort_by(.created_at) | reverse | .[] | [.id, .status, .current_phase // "-", .engine, .node_ip // "-", .model]) | @tsv' | \
+	 column -t -s "$$(printf '\t')"
+
 .PHONY: vm-logs ## 🔍 Tail journalctl runner sur la VM d'un run (RUN_ID=<uuid> [ORCHESTRATOR_IP=<ip>])
 vm-logs:
 	@test -n "$(RUN_ID)" || { echo "usage: make vm-logs RUN_ID=<uuid> [ORCHESTRATOR_IP=<ip>]"; exit 1; }
