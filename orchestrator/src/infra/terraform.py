@@ -123,6 +123,8 @@ async def provision_node(run: Run) -> tuple[str, str]:
 
     await asyncio.to_thread(_stage_workspace)
 
+    instance_type = settings.gpu_instance_type_override or _INSTANCE_TYPE[gpu_type]
+
     ssh_keys = [k.strip() for k in settings.ssh_public_keys.split(",") if k.strip()]
     ssh_keys_hcl = "[" + ", ".join(f'"{k}"' for k in ssh_keys) + "]"
 
@@ -152,7 +154,7 @@ async def provision_node(run: Run) -> tuple[str, str]:
     var_file_contents = (
         f'run_id           = "{run_id}"\n'
         f'gpu_type         = "{gpu_type.value}"\n'
-        f'instance_type    = "{_INSTANCE_TYPE[gpu_type]}"\n'
+        f'instance_type    = "{instance_type}"\n'
         f'orchestrator_url = "{settings.orchestrator_url}"\n'
         f'gpu_zone         = "{settings.gpu_zone}"\n'
         f"ssh_public_keys  = {ssh_keys_hcl}\n"

@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     orchestrator_url: str = "http://localhost:8000"
     hf_token: str = ""
     gpu_zone: str = "fr-par-2"
+    # Debug only: force one instance type for every GPU VM (e.g. L4-1-24G on a
+    # throwaway branch). Must stay "" on main — a non-empty value sends every
+    # CI bench to that SKU and mislabels results in the leaderboard.
+    gpu_instance_type_override: str = ""
     # Docker image URIs for GPU runner containers
     docker_image_vllm: str = "ghcr.io/llmgrill/llmgrill-runner-vllm:latest"
     docker_image_llamacpp: str = "ghcr.io/llmgrill/llmgrill-runner-llamacpp:latest"

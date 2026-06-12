@@ -211,6 +211,36 @@ class TestProvisionNode:
         assert match is not None
         assert re.findall(r'"([^"]*)"', match.group(1)) == expected
 
+    async def test_should_force_instance_type_when_override_is_set(
+        self, tmp_path, mocker
+    ):
+        """
+        Should ignore the GpuType mapping when GPU_INSTANCE_TYPE_OVERRIDE is set.
+
+        Given: settings.gpu_instance_type_override = "L4-1-24G"
+        When: provision_node stages a run requiring an L40S
+        Then: terraform.tfvars carries the override instance type
+        """
+        # Given
+        mocker.patch("src.infra.terraform._TERRAFORM_DIR", tmp_path)
+        mocker.patch("src.infra.terraform._WORKSPACES_DIR", tmp_path / "workspaces")
+        mocker.patch("src.infra.terraform._SCENARIOS_ROOT", tmp_path)
+        (tmp_path / "cloud-init.tpl.yaml").write_text("cloud-init")
+        (tmp_path / "scenarios").mkdir(exist_ok=True)
+        (tmp_path / "scenarios" / "basic_8b.yaml").write_text("model: ${MODEL}")
+        mocker.patch("src.infra.terraform._terraform", side_effect=_fake_terraform())
+        mocker.patch.object(settings, "gpu_instance_type_override", "L4-1-24G")
+        run_id = uuid.uuid4()
+
+        # When
+        await provision_node(_fake_run(run_id, GpuType.L40S))
+
+        # Then
+        tfvars = (
+            tmp_path / "workspaces" / str(run_id) / "terraform.tfvars"
+        ).read_text()
+        assert 'instance_type    = "L4-1-24G"' in tfvars
+
     async def test_should_raise_when_terraform_fails(self, tmp_path, mocker):
         """
         Should propagate RuntimeError when terraform apply exits non-zero.
