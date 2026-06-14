@@ -143,6 +143,11 @@ async def provision_node(run: Run) -> tuple[str, str]:
     scenario_content = (await asyncio.to_thread(scenario_file.read_text)).replace(
         "${MODEL}", run.model
     )
+    # The scenario is embedded in an interpolating HCL heredoc below. Any
+    # remaining ${...} / %{...} sequences (e.g. a ${ENGINE} TODO reference in a
+    # comment) would be parsed as Terraform interpolation and fail. Escape them
+    # to their literal forms ($${ / %%{) so HCL treats them as plain text.
+    scenario_content = scenario_content.replace("${", "$${").replace("%{", "%%{")
 
     # Non-secret vars written to file; secrets passed via -var flags to avoid disk exposure
     var_file = workspace / "terraform.tfvars"
