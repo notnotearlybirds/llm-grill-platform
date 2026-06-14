@@ -53,9 +53,9 @@ class Settings(BaseSettings):
     # Debug only: force one instance type for every GPU VM (e.g. L4-1-24G on a
     # throwaway branch). Must stay "" on main — a non-empty value sends every
     # CI bench to that SKU and mislabels results in the leaderboard.
-    gpu_instance_type_override: str = "L4-1-24G"
+    gpu_instance_type_override: str = ""
     # Docker image URIs for GPU runner containers
-    docker_image_vllm: str = "ghcr.io/llmgrill/llmgrill-runner-vllm:286a595"
+    docker_image_vllm: str = "ghcr.io/llmgrill/llmgrill-runner-vllm:latest"
     docker_image_llamacpp: str = "ghcr.io/llmgrill/llmgrill-runner-llamacpp:latest"
     # Maximum seconds to wait for a model download before aborting the run.
     download_timeout_seconds: int = 1800
