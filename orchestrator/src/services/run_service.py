@@ -16,7 +16,10 @@ from src.storage import (
 _MAX_LOG_BYTES = 5 * 1024 * 1024
 _HALF_LOG_BYTES = 2 * 1024 * 1024  # 2 MB head + 2 MB tail (leaves room for marker)
 
-_L40S_THRESHOLD_B = 26
+# Below this, weights + KV headroom fit comfortably on L40S-1-48G; at or above,
+# the model needs H100-1-80G. Set to 20 so a 24B (~48 GB of bf16 weights alone)
+# routes to H100 rather than OOM-ing on the L40S.
+_L40S_THRESHOLD_B = 20
 
 
 class RunService:

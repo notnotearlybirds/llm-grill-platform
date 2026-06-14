@@ -516,25 +516,25 @@ class TestPhaseHeartbeat:
 
 
 class TestGpuRouting:
-    """Unit tests for the GPU routing logic (threshold: < 26B → L40S, else H100)."""
+    """Unit tests for the GPU routing logic (threshold: < 20B → L40S, else H100)."""
 
-    @pytest.mark.parametrize("model_size_b", [3, 7, 8, 13, 25])
+    @pytest.mark.parametrize("model_size_b", [3, 7, 8, 14, 19])
     def test_should_route_below_threshold_to_l40s(self, model_size_b):
         """
-        Should return L40S for any model strictly below 26B.
+        Should return L40S for any model strictly below 20B.
 
-        Given: A model size in billions below the 26B threshold
+        Given: A model size in billions below the 20B threshold
         When: select_gpu is called
         Then: GpuType.L40S is returned
         """
         assert RunService.select_gpu(model_size_b) == GpuType.L40S
 
-    @pytest.mark.parametrize("model_size_b", [26, 30, 70, 405])
+    @pytest.mark.parametrize("model_size_b", [20, 24, 32, 70])
     def test_should_route_at_or_above_threshold_to_h100(self, model_size_b):
         """
-        Should return H100 for any model at or above 26B.
+        Should return H100 for any model at or above 20B.
 
-        Given: A model size in billions at or above the 26B threshold
+        Given: A model size in billions at or above the 20B threshold
         When: select_gpu is called
         Then: GpuType.H100 is returned
         """
