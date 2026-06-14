@@ -529,7 +529,7 @@ class TestGpuRouting:
         """
         assert RunService.select_gpu(model_size_b) == GpuType.L40S
 
-    @pytest.mark.parametrize("model_size_b", [20, 24, 32, 70])
+    @pytest.mark.parametrize("model_size_b", [20, 24, 32, 70, 405])
     def test_should_route_at_or_above_threshold_to_h100(self, model_size_b):
         """
         Should return H100 for any model at or above 20B.

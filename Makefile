@@ -46,17 +46,19 @@ _ORCH_HOST = $(if $(ORCHESTRATOR_IP),$(ORCHESTRATOR_IP),localhost)
 _ORCH_API  = http://$(_ORCH_HOST):8000
 _SSH_JUMP  = $(if $(ORCHESTRATOR_IP),-J root@$(ORCHESTRATOR_IP),)
 _SSH_OPTS  = -o StrictHostKeyChecking=accept-new $(_SSH_JUMP)
+# Fail fast when the orchestrator is slow or half-open instead of hanging.
+_CURL_TIMEOUT_OPTS ?= --connect-timeout 2 --max-time 5
 
 .PHONY: runs ## 📇 Liste les runs et leurs RUN_ID ([STATUS=<état>] [ORCHESTRATOR_IP=<ip>])
 runs:
-	@curl -sf "$(_ORCH_API)/runs$(if $(STATUS),?status=$(STATUS),)" | \
+	@curl -sf $(_CURL_TIMEOUT_OPTS) "$(_ORCH_API)/runs$(if $(STATUS),?status=$(STATUS),)" | \
 	 jq -r '["RUN_ID","STATUS","PHASE","ENGINE","NODE_IP","MODEL"], (sort_by(.created_at) | reverse | .[] | [.id, .status, .current_phase // "-", .engine, .node_ip // "-", .model]) | @tsv' | \
 	 column -t -s "$$(printf '\t')"
 
 .PHONY: vm-logs ## 🔍 Tail journalctl runner sur la VM d'un run (RUN_ID=<uuid> [ORCHESTRATOR_IP=<ip>])
 vm-logs:
 	@test -n "$(RUN_ID)" || { echo "usage: make vm-logs RUN_ID=<uuid> [ORCHESTRATOR_IP=<ip>]"; exit 1; }
-	@IP=$$(curl -sf $(_ORCH_API)/runs/$(RUN_ID) | jq -r '.node_ip // empty'); \
+	@IP=$$(curl -sf $(_CURL_TIMEOUT_OPTS) $(_ORCH_API)/runs/$(RUN_ID) | jq -r '.node_ip // empty'); \
 	 test -n "$$IP" || { echo "no node ip for run $(RUN_ID)"; exit 1; }; \
 	 echo "→ ssh $(_SSH_JUMP) root@$$IP"; \
 	 ssh $(_SSH_OPTS) root@$$IP "journalctl -u llmgrill-runner -f"
@@ -64,7 +66,7 @@ vm-logs:
 .PHONY: vm-cloud-init ## 🔍 Tail cloud-init logs sur la VM d'un run (RUN_ID=<uuid> [ORCHESTRATOR_IP=<ip>])
 vm-cloud-init:
 	@test -n "$(RUN_ID)" || { echo "usage: make vm-cloud-init RUN_ID=<uuid> [ORCHESTRATOR_IP=<ip>]"; exit 1; }
-	@IP=$$(curl -sf $(_ORCH_API)/runs/$(RUN_ID) | jq -r '.node_ip // empty'); \
+	@IP=$$(curl -sf $(_CURL_TIMEOUT_OPTS) $(_ORCH_API)/runs/$(RUN_ID) | jq -r '.node_ip // empty'); \
 	 test -n "$$IP" || { echo "no node ip for run $(RUN_ID)"; exit 1; }; \
 	 echo "→ ssh $(_SSH_JUMP) root@$$IP"; \
 	 ssh $(_SSH_OPTS) root@$$IP "tail -f /var/log/cloud-init-output.log"
@@ -72,7 +74,7 @@ vm-cloud-init:
 .PHONY: vm-shell ## 🖥  SSH dans la VM d'un run (RUN_ID=<uuid> [ORCHESTRATOR_IP=<ip>])
 vm-shell:
 	@test -n "$(RUN_ID)" || { echo "usage: make vm-shell RUN_ID=<uuid> [ORCHESTRATOR_IP=<ip>]"; exit 1; }
-	@IP=$$(curl -sf $(_ORCH_API)/runs/$(RUN_ID) | jq -r '.node_ip // empty'); \
+	@IP=$$(curl -sf $(_CURL_TIMEOUT_OPTS) $(_ORCH_API)/runs/$(RUN_ID) | jq -r '.node_ip // empty'); \
 	 test -n "$$IP" || { echo "no node ip for run $(RUN_ID)"; exit 1; }; \
 	 echo "→ ssh $(_SSH_JUMP) root@$$IP"; \
 	 ssh $(_SSH_OPTS) root@$$IP
