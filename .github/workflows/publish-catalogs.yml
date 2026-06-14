@@ -33,6 +33,6 @@ jobs:
           API_KEY: ${{ secrets.API_KEY }}
           SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
           SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
-          SCW_BUCKET: ${{ secrets.SCW_BUCKET }}
+          SCW_BUCKET: ${{ vars.SCW_BUCKET }}
           SCW_REGION: ${{ secrets.SCW_REGION }}
         run: make publish-catalogs
