@@ -47,14 +47,19 @@ models:
     size_b: 27
     categories: [MoE]
 
-  # --- Large (70B+) ---
-  - model: meta-llama/Llama-3.3-70B-Instruct
-    engine: vllm
-    size_b: 70
-
-  - model: Qwen/Qwen2.5-72B-Instruct
-    engine: vllm
-    size_b: 72
+  # --- Large (70B+) — DISABLED ---
+  # 70B+ in bf16 needs ~140 GB of weights, which does not fit a single
+  # H100-1-80G (our largest provisioned SKU). Re-enabling needs either a
+  # multi-GPU instance type + tensor-parallel launch, or sharded-GGUF support
+  # in runner.sh (today `hf download` fetches a single file, so split GGUF
+  # quantizations would not download correctly). Left here as editorial intent.
+  # - model: meta-llama/Llama-3.3-70B-Instruct
+  #   engine: vllm
+  #   size_b: 70
+  #
+  # - model: Qwen/Qwen2.5-72B-Instruct
+  #   engine: vllm
+  #   size_b: 72
 
   # --- Reasoning ---
   - model: deepseek-ai/DeepSeek-R1-Distill-Llama-8B

@@ -1,37 +1,72 @@
 name: ramp
 description: >
-  Ramp load test: progressive concurrency on a single local backend serving a
-  single model (injected via ${MODEL} substitution), with a short neutral user
-  prompt. Works across model sizes — larger models will saturate earlier on the
-  curve, smaller models will keep scaling up to the highest level.
+  Ramp load test: progressive concurrency against a single local backend serving
+  one model (injected via ${MODEL}). The request shape is deliberately
+  homogeneous — one fixed prompt, one fixed generation cap — because the
+  leaderboard aggregates metrics per concurrency level only. Mixing prompt
+  shapes would blur TTFT/TPOT within a level rather than sharpen the load curve.
+  Larger models saturate earlier on the curve; smaller ones keep scaling.
 
 backends:
   - name: local
     url: "http://localhost:8080"
     api_key: none
+    # NOTE: llama.cpp runs reuse this scenario with type=vllm. The completion
+    # path is OpenAI-compatible so requests work, but vLLM-specific backend
+    # metrics (kv_cache_usage, cache_hit_rate) come back null for llama.cpp.
+    # A clean fix needs ${ENGINE} substitution wired into runner provisioning.
     type: vllm
-    timeout: 120.0
+    timeout: 180.0
     gpu_monitoring: true
 
 models:
   - name: "${MODEL}"
+    # Deterministic decoding (greedy) so re-runs are comparable and TPOT is not
+    # polluted by sampling variance. max_tokens bounds the decode workload.
     max_tokens: 256
     temperature: 0.0
+    top_p: 1.0
+    top_k: -1
 
 conversations:
-  - name: basic-prompt
-    description: "Single short user prompt — neutral baseline."
+  - name: ramp-prompt
+    description: "Fixed, prefill-substantial prompt — one user turn."
+    # unique_prefix prepends a per-(user, iteration) tag at the FRONT of the
+    # prompt. Without it, an identical prompt + vLLM prefix caching would serve
+    # every request from cache and TTFT would measure cache hits, not prefill.
+    unique_prefix: true
     turns:
       - role: user
-        content: "Explain in one paragraph what makes a good engineering manager."
+        content: >
+          You are a staff software engineer reviewing a production incident.
+          A service that provisions ephemeral GPU virtual machines began
+          failing intermittently: roughly one provisioning attempt in five
+          timed out after the cloud-init phase, the affected machines never
+          registered with the orchestrator, and they were eventually reaped by
+          a watchdog. CPU, memory, and disk on the orchestrator were nominal
+          throughout, and the GPU machines that did come up performed normally.
+          The on-call engineer suspects either a race between the security
+          group becoming active and the first inbound connection, or a
+          transient image-pull failure during cloud-init. Write a concise,
+          well-structured postmortem covering the most likely root cause, how
+          you would confirm it from the available logs, and two concrete
+          mitigations that would prevent recurrence. Keep it focused and
+          actionable.
 
 targets:
   - backend: local
     model: "${MODEL}"
-    conversation: basic-prompt
+    conversation: ramp-prompt
 
 load:
-  ramp_levels: [1, 4, 8, 16, 32, 64]
+  # Extra low-end levels (1, 2) resolve the latency floor before contention;
+  # the curve then doubles up to 64 to expose the saturation knee.
+  ramp_levels: [1, 2, 4, 8, 16, 32, 64]
+  # Stagger user starts within a level so a level doesn't open with a
+  # synchronized burst that inflates p95 TTFT artificially.
+  ramp_up_seconds: 5.0
+  # Let the KV cache drain and in-flight requests settle between levels.
   ramp_pause_seconds: 15.0
-  iterations: 2
+  # 5 iterations/user/level for stable medians and p95 (was 2 — too noisy).
+  iterations: 5
   think_time_seconds: 0.0
