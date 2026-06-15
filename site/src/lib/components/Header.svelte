@@ -4,15 +4,7 @@
 		engines?: { label: string; gpu: string }[];
 	} = $props();
 
-	const homeUrl = (() => {
-		if (import.meta.env.VITE_HOME_URL) return import.meta.env.VITE_HOME_URL;
-		const u = new URL(window.location.origin);
-		if (u.hostname.startsWith('llm-grill.')) {
-			u.hostname = u.hostname.slice('llm-grill.'.length);
-			return u.origin;
-		}
-		return 'https://gireg.fr';
-	})();
+	const homeUrl = 'https://gireg.fr';
 </script>
 
 <header class="hdr">
