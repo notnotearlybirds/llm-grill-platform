@@ -12,7 +12,12 @@
 		{/if}
 		{#if scenarioLabel}
 			<span class="ftr-dot">·</span>
-			<span>{scenarioLabel}</span>
+			<a
+				class="ftr-link"
+				href="https://github.com/llmgrill/llm-grill-platform/blob/main/scenarios/ramp.yaml"
+				target="_blank"
+				rel="noopener noreferrer">{scenarioLabel}</a
+			>
 		{/if}
 	</div>
 	<div class="ftr-r">
