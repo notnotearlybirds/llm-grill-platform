@@ -14,7 +14,7 @@
 			<span class="ftr-dot">·</span>
 			<a
 				class="ftr-link"
-				href="https://github.com/llmgrill/llm-grill-platform/blob/main/scenarios/ramp.yaml"
+				href="https://github.com/notnotearlybirds/llm-grill-platform/blob/main/scenarios/ramp.yaml"
 				target="_blank"
 				rel="noopener noreferrer">{scenarioLabel}</a
 			>

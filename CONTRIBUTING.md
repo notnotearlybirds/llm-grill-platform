@@ -5,7 +5,7 @@ Architecture, stack, env vars, conventions, test layout: see [CLAUDE.md](CLAUDE.
 ## Setup
 
 ```bash
-git clone https://github.com/llmgrill/llm-grill-platform.git
+git clone https://github.com/notnotearlybirds/llm-grill-platform.git
 cd llm-grill-platform
 cp .env.example .env             # fill in secrets
 make up                          # postgres + orchestrator (Docker)

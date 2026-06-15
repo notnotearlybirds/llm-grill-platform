@@ -7,7 +7,7 @@ Source of truth for build, run, and development. Optimized for Claude Code.
 ## Project
 
 Benchmark pipeline for LLM inference servers on Scaleway GPU.
-The orchestrator (FastAPI) queues runs, provisions ephemeral GPU VMs via Terraform, executes [`llm-grill`](https://github.com/fisheatfish/llm-grill) on each, and publishes a consolidated leaderboard to S3.
+The orchestrator (FastAPI) queues runs, provisions ephemeral GPU VMs via Terraform, executes [`llm-grill`](https://github.com/notnotearlybirds/llm-grill) on each, and publishes a consolidated leaderboard to S3.
 
 ---
 

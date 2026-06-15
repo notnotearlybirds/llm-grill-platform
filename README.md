@@ -3,7 +3,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
 
-Cloud orchestrator that runs [`llm-grill`](https://github.com/fisheatfish/llm-grill) benchmarks across a curated model list on **Scaleway GPU**, then publishes a consolidated leaderboard to S3.
+Cloud orchestrator that runs [`llm-grill`](https://github.com/notnotearlybirds/llm-grill) benchmarks across a curated model list on **Scaleway GPU**, then publishes a consolidated leaderboard to S3.
 
 Provisions **ephemeral GPU VMs** via Terraform, runs the bench, uploads results, tears the VMs down — driven by `models.yaml` + GitHub Actions.
 
@@ -14,7 +14,7 @@ Provisions **ephemeral GPU VMs** via Terraform, runs the bench, uploads results,
 Requires **Docker**, **Python 3.12+**, and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-git clone https://github.com/llmgrill/llm-grill-platform.git
+git clone https://github.com/notnotearlybirds/llm-grill-platform.git
 cd llm-grill-platform
 cp .env.example .env        # fill in API_KEY, HF_TOKEN, SCW_*
 ```
