@@ -324,9 +324,7 @@ class TestReapers:
         )
 
         # When
-        ids = await RunRepository.claim_provisioning_timed_out(
-            now - timedelta(hours=1)
-        )
+        ids = await RunRepository.claim_provisioning_timed_out(now - timedelta(hours=1))
 
         # Then
         assert run.id not in ids

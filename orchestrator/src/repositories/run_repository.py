@@ -64,9 +64,7 @@ class RunRepository:
             rows = (
                 await session.execute(
                     select(Run.gpu_type_required, func.count())
-                    .where(
-                        Run.status.in_([RunStatus.provisioning, RunStatus.running])
-                    )
+                    .where(Run.status.in_([RunStatus.provisioning, RunStatus.running]))
                     .group_by(Run.gpu_type_required)
                 )
             ).all()
