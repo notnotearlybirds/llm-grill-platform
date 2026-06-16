@@ -56,12 +56,12 @@ class Settings(BaseSettings):
     gpu_instance_type_override: str = ""
     # Docker image URIs for GPU runner containers
     docker_image_vllm: str = "ghcr.io/notnotearlybirds/llmgrill-runner-vllm:latest"
-    docker_image_llamacpp: str = "ghcr.io/notnotearlybirds/llmgrill-runner-llamacpp:latest"
+    docker_image_llamacpp: str = (
+        "ghcr.io/notnotearlybirds/llmgrill-runner-llamacpp:latest"
+    )
     # Maximum seconds to wait for a model download before aborting the run.
     download_timeout_seconds: int = 1800
-    # Maximum seconds to wait for the inference engine to pass /health before
-    # aborting. Large models (e.g. a 24B on vLLM) need more than the old
-    # hardcoded 300s for weight load + CUDA graph capture on a cold start.
+    # Maximum seconds to wait for the inference engine to pass /health before aborting.
     engine_health_timeout_seconds: int = 600
 
     # Scaleway Object Storage
