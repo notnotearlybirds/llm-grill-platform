@@ -34,12 +34,15 @@ class Settings(BaseSettings):
     run_running_timeout_minutes: int = 60
     # Fail a run if it stays in "provisioning" longer than this (minutes).
     run_provisioning_timeout_minutes: int = 30
-    # Max live GPUs per type (= the Scaleway project quota). The poll loop never
+    # Max live GPUs per type (= the Scaleway zone quota). The poll loop never
     # claims more runs of a type than (quota - currently live), so it never asks
     # Scaleway for capacity we can't have. Excess runs wait in `queued` until a
     # slot frees — no retries burned, no false "quota exceeded" failures.
-    gpu_quota_h100: int = 2
-    gpu_quota_l40s: int = 2
+    # These are the fallback: at startup the orchestrator reads the live quota
+    # for GPU_ZONE from the Scaleway IAM API and overrides them (Scaleway's GPU
+    # default is 1/zone, raised on request).
+    gpu_quota_h100: int = 1
+    gpu_quota_l40s: int = 1
 
     @model_validator(mode="after")
     def build_database_url(self) -> "Settings":
@@ -69,6 +72,7 @@ class Settings(BaseSettings):
     scw_region: str = "fr-par"
     scw_access_key: str = ""
     scw_secret_key: str = ""
+    scw_default_organization_id: str = ""
     api_key: str
     debug: bool = False
 

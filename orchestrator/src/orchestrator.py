@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from loguru import logger
 
 from src.config import settings
+from src.infra.scaleway import ScalewayQuotaAdapter
 from src.infra.terraform import (
     OutOfStockError,
     ScalewayAuthError,
@@ -22,6 +23,23 @@ _GPU_QUOTA: dict[GpuType, int] = {
     GpuType.H100: settings.gpu_quota_h100,
     GpuType.L40S: settings.gpu_quota_l40s,
 }
+
+
+async def refresh_gpu_quota() -> None:
+    """Override _GPU_QUOTA with the live per-type quota for GPU_ZONE.
+
+    Best-effort: on any failure (no org id, auth, network) the config fallback
+    is kept so the orchestrator still starts.
+    """
+    try:
+        live = await ScalewayQuotaAdapter.fetch_gpu_quota(settings.gpu_zone)
+    except Exception:
+        logger.exception(
+            "could not read Scaleway GPU quota; using config fallback {}", _GPU_QUOTA
+        )
+        return
+    _GPU_QUOTA.update(live)
+    logger.info("GPU quota for zone {}: {}", settings.gpu_zone, _GPU_QUOTA)
 
 
 async def _fail(run_id, reason: str) -> None:
@@ -261,6 +279,7 @@ async def poll_once() -> None:
 
 
 async def polling_loop() -> None:
+    await refresh_gpu_quota()
     await recover_leaked_nodes()
     await recover_orphaned_provisioning()
     while True:

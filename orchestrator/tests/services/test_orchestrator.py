@@ -119,46 +119,122 @@ class TestReleaseNode:
         await release_node(run_id)
 
 
+class TestRefreshGpuQuota:
+    """refresh_gpu_quota — override _GPU_QUOTA from Scaleway, fall back on error."""
+
+    @pytest.fixture(autouse=True)
+    def restore_quota(self):
+        """Snapshot/restore the module global so tests don't leak into each other."""
+        saved = dict(orch._GPU_QUOTA)
+        yield
+        orch._GPU_QUOTA.clear()
+        orch._GPU_QUOTA.update(saved)
+
+    async def test_overrides_quota_from_scaleway(self, mocker):
+        """
+        Given the adapter returns a live per-type quota
+        When  refresh_gpu_quota runs
+        Then  _GPU_QUOTA is updated to the live values
+        """
+        # Given
+        mocker.patch.object(
+            orch.ScalewayQuotaAdapter,
+            "fetch_gpu_quota",
+            return_value={GpuType.H100: 3, GpuType.L40S: 2},
+        )
+
+        # When
+        await orch.refresh_gpu_quota()
+
+        # Then
+        assert orch._GPU_QUOTA[GpuType.H100] == 3
+        assert orch._GPU_QUOTA[GpuType.L40S] == 2
+
+    async def test_keeps_fallback_on_error(self, mocker):
+        """
+        Given the adapter raises (no org id, auth, network)
+        When  refresh_gpu_quota runs
+        Then  _GPU_QUOTA keeps its config fallback and startup is not broken
+        """
+        # Given
+        before = dict(orch._GPU_QUOTA)
+        mocker.patch.object(
+            orch.ScalewayQuotaAdapter,
+            "fetch_gpu_quota",
+            side_effect=RuntimeError("boom"),
+        )
+
+        # When
+        await orch.refresh_gpu_quota()
+
+        # Then
+        assert orch._GPU_QUOTA == before
+
+
 class TestPollOnce:
     """Tests for poll_once — pick up queued runs and spawn provisioning tasks."""
 
-    async def test_should_create_task_for_each_queued_run(
-        self, session_factory, mocker
-    ):
-        """
-        Should spawn one task per queued run found.
-
-        Given: Two queued runs in the DB
-        When: poll_once is called
-        Then: handle_queued_run is called twice
-        """
-        # Given
+    @staticmethod
+    async def _add_queued(session_factory, n, gpu_type=GpuType.L40S):
         async with session_factory() as session:
-            for _ in range(2):
+            for _ in range(n):
                 session.add(
                     Run(
                         model="meta-llama/Llama-3-8B",
                         model_size_b=8,
                         engine=Engine.vllm,
-                        gpu_type_required=GpuType.L40S,
+                        gpu_type_required=gpu_type,
                         scenario_path="scenarios/basic.yaml",
                         status=RunStatus.queued,
                     )
                 )
             await session.commit()
 
-        async def _noop(session, run):
-            pass
-
-        mock_handle = mocker.patch(
-            "src.orchestrator.handle_queued_run", side_effect=_noop
-        )
+    async def test_should_claim_up_to_quota(self, session_factory, mocker):
+        """
+        Given: three queued L40S runs and a quota of two
+        When:  poll_once is called
+        Then:  exactly two tasks are spawned (gated by quota)
+        """
+        # Given
+        await self._add_queued(session_factory, 3)
+        mocker.patch.dict(orch._GPU_QUOTA, {GpuType.L40S: 2})
+        mock_handle = mocker.patch("src.orchestrator.handle_queued_run")
 
         # When
         await poll_once()
 
         # Then
         assert mock_handle.call_count == 2
+
+    async def test_should_subtract_live_from_quota(self, session_factory, mocker):
+        """
+        Given: a quota of two with one L40S already running, plus two queued
+        When:  poll_once is called
+        Then:  only one task is spawned (quota - live)
+        """
+        # Given
+        async with session_factory() as session:
+            session.add(
+                Run(
+                    model="m",
+                    model_size_b=8,
+                    engine=Engine.vllm,
+                    gpu_type_required=GpuType.L40S,
+                    scenario_path="s.yaml",
+                    status=RunStatus.running,
+                )
+            )
+            await session.commit()
+        await self._add_queued(session_factory, 2)
+        mocker.patch.dict(orch._GPU_QUOTA, {GpuType.L40S: 2})
+        mock_handle = mocker.patch("src.orchestrator.handle_queued_run")
+
+        # When
+        await poll_once()
+
+        # Then
+        assert mock_handle.call_count == 1
 
     async def test_should_not_create_task_when_no_queued_runs(
         self, session_factory, mocker
