@@ -68,6 +68,8 @@ class Settings(BaseSettings):
     )
     # Maximum seconds to wait for a model download before aborting the run.
     download_timeout_seconds: int = 1800
+    # Maximum seconds to wait for the inference engine to pass /health before aborting.
+    engine_health_timeout_seconds: int = 600
 
     # Scaleway Object Storage
     scw_bucket: str = "llm-grill-platform"

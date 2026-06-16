@@ -13,6 +13,7 @@ write_files:
       SCENARIO=/etc/llmgrill/scenario.yaml
       GGUF_FILE=${gguf_file}
       DOWNLOAD_TIMEOUT_SECONDS=${download_timeout_seconds}
+      ENGINE_HEALTH_TIMEOUT_SECONDS=${engine_health_timeout_seconds}
 
   - path: /etc/llmgrill/scenario.yaml
     permissions: "0644"

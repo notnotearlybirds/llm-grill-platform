@@ -7,6 +7,7 @@ ORCHESTRATOR_URL="${ORCHESTRATOR_URL%/}"
 API_KEY_HEADER="X-API-Key: ${ORCHESTRATOR_API_KEY:-}"
 GGUF_FILE="${GGUF_FILE:-}"
 DOWNLOAD_TIMEOUT_SECONDS="${DOWNLOAD_TIMEOUT_SECONDS:-1800}"
+ENGINE_HEALTH_TIMEOUT_SECONDS="${ENGINE_HEALTH_TIMEOUT_SECONDS:-600}"
 MODEL_DIR="/opt/models"
 ENGINE_PORT=8080
 ENGINE_PID=""
@@ -121,9 +122,9 @@ fi
 
 # --- 4. Healthcheck ---
 report_phase "healthcheck"
-DEADLINE=$(( $(date +%s) + 300 ))
+DEADLINE=$(( $(date +%s) + ENGINE_HEALTH_TIMEOUT_SECONDS ))
 until curl -sf "http://localhost:${ENGINE_PORT}/health" > /dev/null; do
-  [[ $(date +%s) -ge $DEADLINE ]] && fail "engine did not become healthy within 300s"
+  [[ $(date +%s) -ge $DEADLINE ]] && fail "engine did not become healthy within ${ENGINE_HEALTH_TIMEOUT_SECONDS}s"
   sleep 5
 done
 

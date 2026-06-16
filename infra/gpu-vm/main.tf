@@ -44,17 +44,18 @@ resource "scaleway_instance_server" "gpu" {
 
   user_data = {
     "cloud-init" = templatefile("${path.module}/cloud-init.tpl.yaml", {
-      run_id               = var.run_id
-      orchestrator_url     = var.orchestrator_url
-      hf_token             = var.hf_token
-      orchestrator_api_key = var.orchestrator_api_key
-      model                = var.model
-      engine               = var.engine
-      scenario_path        = var.scenario_path
-      gguf_file            = var.gguf_file
-      scenario_content          = var.scenario_content
-      docker_image              = var.docker_image
-      download_timeout_seconds  = var.download_timeout_seconds
+      run_id                        = var.run_id
+      orchestrator_url              = var.orchestrator_url
+      hf_token                      = var.hf_token
+      orchestrator_api_key          = var.orchestrator_api_key
+      model                         = var.model
+      engine                        = var.engine
+      scenario_path                 = var.scenario_path
+      gguf_file                     = var.gguf_file
+      scenario_content              = var.scenario_content
+      docker_image                  = var.docker_image
+      download_timeout_seconds      = var.download_timeout_seconds
+      engine_health_timeout_seconds = var.engine_health_timeout_seconds
     })
   }
 }
