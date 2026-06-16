@@ -120,6 +120,13 @@ async def provision_node(run: Run) -> tuple[str, str]:
         for f in _TERRAFORM_DIR.glob("*.tf"):
             shutil.copy(f, workspace)
         shutil.copy(_TERRAFORM_DIR / "cloud-init.tpl.yaml", workspace)
+        # Stage the baked, pinned lock file so the per-run `init` installs the
+        # exact provider already present in the shared plugin cache instead of
+        # re-resolving the version range and re-writing the cache (the ETXTBSY
+        # race). Guarded: absent in local dev where the image isn't built.
+        lock = _TERRAFORM_DIR / ".terraform.lock.hcl"
+        if lock.exists():
+            shutil.copy(lock, workspace)
 
     await asyncio.to_thread(_stage_workspace)
 

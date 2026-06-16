@@ -32,6 +32,14 @@ ENV UV_CACHE_DIR=/app/.cache/uv
 # Share the Scaleway provider across per-run terraform workspaces so every
 # `terraform init` doesn't re-download/extract it (saves disk + RAM under load).
 ENV TF_PLUGIN_CACHE_DIR=/app/.cache/terraform-plugins
-RUN mkdir -p /app/.cache/terraform-plugins
+# Pre-warm the cache and pin the provider at build time. The plugin cache is
+# NOT concurrency-safe: when several per-run `terraform init`s race to populate
+# the same provider binary, the kernel rejects writing a file another process is
+# executing (ETXTBSY → "text file busy"). Baking the exact version into the
+# cache + a complete linux_amd64 lock file makes every runtime `init` read-only
+# against the cache, so concurrent provisioning never writes it.
+RUN mkdir -p /app/.cache/terraform-plugins \
+    && terraform -chdir=/app/infra/gpu-vm providers lock -platform=linux_amd64 \
+    && terraform -chdir=/app/infra/gpu-vm init -input=false -backend=false
 
 CMD ["uv", "run", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
