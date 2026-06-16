@@ -269,7 +269,16 @@ async def poll_once() -> None:
     # with no attempt burned — they get claimed on a later tick when a slot
     # frees, so a long queue drains in waves instead of failing its tail.
     live = await RunRepository.count_live_by_type()
-    for gpu_type, quota in _GPU_QUOTA.items():
+    # Iterate the enum, not _GPU_QUOTA, so a GpuType added without a configured
+    # quota surfaces loudly instead of having its runs silently never claimed.
+    for gpu_type in GpuType:
+        quota = _GPU_QUOTA.get(gpu_type)
+        if quota is None:
+            logger.warning(
+                "no GPU quota configured for {} — its runs will not be claimed",
+                gpu_type,
+            )
+            continue
         free = quota - live.get(gpu_type, 0)
         claimed = await RunRepository.claim_queued(gpu_type, limit=free)
         for run_id, gpu_type_required in claimed:

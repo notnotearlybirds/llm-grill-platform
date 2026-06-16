@@ -150,6 +150,27 @@ class TestRefreshGpuQuota:
         assert orch._GPU_QUOTA[GpuType.H100] == 3
         assert orch._GPU_QUOTA[GpuType.L40S] == 2
 
+    async def test_keeps_fallback_for_types_absent_from_live_quota(self, mocker):
+        """
+        Given the adapter returns a quota for only a subset of types
+        When  refresh_gpu_quota runs
+        Then  the provided type is updated and the missing one keeps its fallback
+        """
+        # Given
+        before = dict(orch._GPU_QUOTA)
+        mocker.patch.object(
+            orch.ScalewayQuotaAdapter,
+            "fetch_gpu_quota",
+            return_value={GpuType.H100: before[GpuType.H100] + 5},
+        )
+
+        # When
+        await orch.refresh_gpu_quota()
+
+        # Then
+        assert orch._GPU_QUOTA[GpuType.H100] == before[GpuType.H100] + 5
+        assert orch._GPU_QUOTA[GpuType.L40S] == before[GpuType.L40S]
+
     async def test_keeps_fallback_on_error(self, mocker):
         """
         Given the adapter raises (no org id, auth, network)
@@ -235,6 +256,25 @@ class TestPollOnce:
 
         # Then
         assert mock_handle.call_count == 1
+
+    async def test_should_skip_type_without_configured_quota(
+        self, session_factory, mocker
+    ):
+        """
+        Given: queued L40S runs but no quota configured for L40S
+        When:  poll_once is called
+        Then:  no task is spawned (the type is skipped, not silently starved)
+        """
+        # Given
+        await self._add_queued(session_factory, 2, GpuType.L40S)
+        mocker.patch.dict(orch._GPU_QUOTA, {GpuType.H100: 1}, clear=True)
+        mock_handle = mocker.patch("src.orchestrator.handle_queued_run")
+
+        # When
+        await poll_once()
+
+        # Then
+        mock_handle.assert_not_called()
 
     async def test_should_not_create_task_when_no_queued_runs(
         self, session_factory, mocker
