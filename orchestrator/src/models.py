@@ -81,6 +81,13 @@ class Run(Base):
     provision_attempts: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
+    # Stamped each time the run enters `provisioning`. The stuck-provisioning
+    # watchdog measures from here, not `created_at`: a run can sit `queued` for
+    # a long time waiting for a free GPU slot, and that wait must not count
+    # against the provisioning timeout.
+    provisioning_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     current_phase: Mapped[str | None] = mapped_column(String, nullable=True)
     phase_updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

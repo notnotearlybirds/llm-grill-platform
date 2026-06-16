@@ -13,21 +13,15 @@ from src.infra.terraform import (
     destroy_node,
     provision_node,
 )
+from src.models import GpuType
 from src.repositories.node_repository import NodeRepository
 from src.repositories.run_repository import RunRepository
 
-# Cap concurrent Terraform provisions to avoid Scaleway API spam and runaway costs.
-# The semaphore serializes the actual terraform work; `_in_flight_provisions`
-# tracks every run we have committed to (claimed in DB or already inside the
-# semaphore) so poll_once never over-claims, even before tasks have had a
-# chance to acquire the semaphore.
-_MAX_CONCURRENT_PROVISIONS = settings.max_concurrent_provisions
-_provision_semaphore = asyncio.Semaphore(_MAX_CONCURRENT_PROVISIONS)
-_in_flight_provisions = 0
-
-
-def _free_provision_slots() -> int:
-    return max(0, _MAX_CONCURRENT_PROVISIONS - _in_flight_provisions)
+# Per-type GPU quota: the most live VMs of each type we may hold at once.
+_GPU_QUOTA: dict[GpuType, int] = {
+    GpuType.H100: settings.gpu_quota_h100,
+    GpuType.L40S: settings.gpu_quota_l40s,
+}
 
 
 async def _fail(run_id, reason: str) -> None:
@@ -49,19 +43,14 @@ async def _safe_destroy(run_id) -> None:
 
 
 async def handle_queued_run(run_id, gpu_type_required) -> None:
-    global _in_flight_provisions
     try:
-        async with _provision_semaphore:
-            try:
-                await _provision_under_permit(run_id, gpu_type_required)
-            except Exception as exc:
-                # Last-resort guard: any unexpected error before/around
-                # provision_node would otherwise leave the run pinned in
-                # `provisioning` until the watchdog reaps it 30 min later.
-                logger.exception("unhandled error in provisioning of run {}", run_id)
-                await _fail(run_id, f"unhandled: {exc}")
-    finally:
-        _in_flight_provisions -= 1
+        await _provision_under_permit(run_id, gpu_type_required)
+    except Exception as exc:
+        # Last-resort guard: any unexpected error before/around provision_node
+        # would otherwise leave the run pinned in `provisioning` until the
+        # watchdog reaps it 30 min later.
+        logger.exception("unhandled error in provisioning of run {}", run_id)
+        await _fail(run_id, f"unhandled: {exc}")
 
 
 async def _provision_under_permit(run_id, gpu_type_required) -> None:
@@ -257,12 +246,16 @@ async def reap_stuck_provisioning() -> None:
 
 
 async def poll_once() -> None:
-    global _in_flight_provisions
-    claimed = await RunRepository.claim_queued(limit=_free_provision_slots())
-    # Reserve slots before yielding so concurrent poll ticks see the new count.
-    _in_flight_provisions += len(claimed)
-    for run_id, gpu_type_required in claimed:
-        asyncio.create_task(handle_queued_run(run_id, gpu_type_required))
+    # Capacity gate: per GPU type, only claim as many queued runs as we have
+    # free quota (quota - currently live). Runs we can't place stay `queued`
+    # with no attempt burned — they get claimed on a later tick when a slot
+    # frees, so a long queue drains in waves instead of failing its tail.
+    live = await RunRepository.count_live_by_type()
+    for gpu_type, quota in _GPU_QUOTA.items():
+        free = quota - live.get(gpu_type, 0)
+        claimed = await RunRepository.claim_queued(gpu_type, limit=free)
+        for run_id, gpu_type_required in claimed:
+            asyncio.create_task(handle_queued_run(run_id, gpu_type_required))
     await reap_stuck_provisioning()
     await reap_stuck_running()
 

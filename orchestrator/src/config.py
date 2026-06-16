@@ -34,8 +34,12 @@ class Settings(BaseSettings):
     run_running_timeout_minutes: int = 60
     # Fail a run if it stays in "provisioning" longer than this (minutes).
     run_provisioning_timeout_minutes: int = 30
-    # Cap concurrent terraform provisions (Scaleway API + orchestrator RAM).
-    max_concurrent_provisions: int = 3
+    # Max live GPUs per type (= the Scaleway project quota). The poll loop never
+    # claims more runs of a type than (quota - currently live), so it never asks
+    # Scaleway for capacity we can't have. Excess runs wait in `queued` until a
+    # slot frees — no retries burned, no false "quota exceeded" failures.
+    gpu_quota_h100: int = 2
+    gpu_quota_l40s: int = 2
 
     @model_validator(mode="after")
     def build_database_url(self) -> "Settings":
