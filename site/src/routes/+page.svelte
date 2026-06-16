@@ -6,7 +6,7 @@
 	import Scatter from '$lib/components/Scatter.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Footer from '$lib/components/Footer.svelte';
-	import { fetchCatalogs, buildView, engineGpu, type Catalogs } from '$lib/data';
+	import { fetchCatalogs, buildView, type Catalogs } from '$lib/data';
 	import type { MetricKey } from '$lib/metrics';
 	import type { ConcurrencyLevel, ViewRow } from '$lib/types';
 
@@ -77,11 +77,6 @@
 	const engines = $derived(catalogs?.engines ?? []);
 	const shapeMap = $derived(new Map(engines.map((e, i) => [e.id, i])));
 
-	// Header stats derived directly — no engineGroups needed.
-	const headerEngines = $derived(
-		engines.map((e) => ({ label: e.label, gpu: engineGpu(view.filter((r) => r.engine === e.id)) }))
-	);
-
 	// Single chart sizing.
 	const hpad = $derived(containerW < 900 ? 32 : 48);
 	const chartW = $derived(containerW > 0 ? containerW - hpad : 0);
@@ -131,7 +126,7 @@
 </script>
 
 <div class="app">
-	<Header {totalModels} engines={headerEngines} />
+	<Header {totalModels} totalBackends={engines.length} />
 
 	{#if error}
 		<div class="status status-err">failed to load benchmark data — {error}</div>
