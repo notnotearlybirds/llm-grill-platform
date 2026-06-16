@@ -18,7 +18,7 @@ _TEMPLATE = _TERRAFORM_DIR / "cloud-init.tpl.yaml"
 
 # Realistic values: the docker image URI carries a ":" (tag) and the URL a
 # "//", the two characters most likely to corrupt an unquoted YAML scalar.
-_DUMMY_VALUE = "ghcr.io/llmgrill/llmgrill-runner-vllm:latest"
+_DUMMY_VALUE = "ghcr.io/notnotearlybirds/llmgrill-runner-vllm:latest"
 _DUMMY_SCENARIO = "model: dummy\nstages:\n  - users: 1"
 
 

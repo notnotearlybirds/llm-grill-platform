@@ -55,8 +55,8 @@ class Settings(BaseSettings):
     # CI bench to that SKU and mislabels results in the leaderboard.
     gpu_instance_type_override: str = ""
     # Docker image URIs for GPU runner containers
-    docker_image_vllm: str = "ghcr.io/llmgrill/llmgrill-runner-vllm:latest"
-    docker_image_llamacpp: str = "ghcr.io/llmgrill/llmgrill-runner-llamacpp:latest"
+    docker_image_vllm: str = "ghcr.io/notnotearlybirds/llmgrill-runner-vllm:latest"
+    docker_image_llamacpp: str = "ghcr.io/notnotearlybirds/llmgrill-runner-llamacpp:latest"
     # Maximum seconds to wait for a model download before aborting the run.
     download_timeout_seconds: int = 1800
 
