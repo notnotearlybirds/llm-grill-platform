@@ -302,12 +302,10 @@ class TestProvisionUnderPermit:
         # Then
         requeue.assert_awaited_once()
         set_failed.assert_not_called()
-        # A stopped server exists and must be torn down before retrying; out-of-stock
-        # / quota never created anything, so no (costly) destroy for them.
-        if isinstance(exc, ServerStartError):
-            destroy.assert_awaited_once()
-        else:
-            destroy.assert_not_called()
+        # Always tear down before retrying: Scaleway can create the server + IP
+        # and then fail to source the GPU, surfacing as out-of-stock (server left
+        # archived). destroy is idempotent, so it runs for every capacity error.
+        destroy.assert_awaited_once()
 
     async def test_should_fail_when_capacity_retries_exhausted(
         self, session_factory, mocker

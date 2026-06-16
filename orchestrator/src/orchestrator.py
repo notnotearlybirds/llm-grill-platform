@@ -80,12 +80,13 @@ async def _provision_under_permit(run_id, gpu_type_required) -> None:
             reason = "quota exceeded"
         else:
             reason = "server failed to start"
-        # ServerStartError means a server resource was actually created (it's just
-        # stopped) — tear it down so we don't keep a dead GPU + its volume/IP
-        # billing across retries, and don't leak it on give-up. OutOfStock/Quota
-        # never created anything, so skip the (costly) destroy for them.
-        if isinstance(exc, ServerStartError):
-            await _safe_destroy(run_id)
+        # Tear down any half-created infra before requeue/give-up. Scaleway can
+        # create the server + routed IP and *then* fail to source the GPU,
+        # surfacing as "out of stock" (server left in `archived`) — not just
+        # ServerStartError. Assuming out-of-stock/quota created nothing leaks a
+        # billing IP + volume. destroy is idempotent: a no-op when terraform
+        # created nothing, a real cleanup when it did.
+        await _safe_destroy(run_id)
         attempt = await RunRepository.requeue_for_retry(
             run_id, settings.provision_max_attempts
         )
