@@ -100,3 +100,9 @@ variable "download_timeout_seconds" {
   type        = number
   default     = 1800
 }
+
+variable "engine_health_timeout_seconds" {
+  description = "Maximum seconds to wait for the inference engine to pass /health"
+  type        = number
+  default     = 600
+}

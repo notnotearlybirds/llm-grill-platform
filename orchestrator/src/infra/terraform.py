@@ -177,6 +177,7 @@ async def provision_node(run: Run) -> tuple[str, str]:
         f'gguf_file        = "{run.gguf_file or ""}"\n'
         f'docker_image     = "{docker_image}"\n'
         f"download_timeout_seconds = {settings.download_timeout_seconds}\n"
+        f"engine_health_timeout_seconds = {settings.engine_health_timeout_seconds}\n"
         f"scenario_content = <<EOT_SCENARIO\n{scenario_content}\nEOT_SCENARIO\n"
     )
     await asyncio.to_thread(var_file.write_text, var_file_contents)
