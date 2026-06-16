@@ -23,29 +23,52 @@ class RunRepository:
             return list(result.scalars().all())
 
     @staticmethod
-    async def claim_queued(limit: int) -> list[tuple[uuid.UUID, GpuType]]:
-        """Atomically fetch up to `limit` queued runs and transition them to provisioning.
+    async def claim_queued(
+        gpu_type: GpuType, limit: int
+    ) -> list[tuple[uuid.UUID, GpuType]]:
+        """Atomically claim up to `limit` queued runs of `gpu_type`, set provisioning.
 
-        Uses SELECT FOR UPDATE SKIP LOCKED so concurrent pollers never pick
-        up the same run twice. `limit` lets the caller cap claims to the number
-        of free provisioning slots, so `provisioning` in DB reflects work that
-        is actually about to enter `provision_node` (not runs queued behind a
-        semaphore).
+        Uses SELECT FOR UPDATE SKIP LOCKED so concurrent pollers never pick up
+        the same run twice. Filtered by GPU type so the caller can cap claims to
+        the per-type free quota (live GPUs of that type must stay <= quota).
         """
         if limit <= 0:
             return []
         async with db.AsyncSessionLocal() as session:
             result = await session.execute(
                 select(Run)
-                .where(Run.status == RunStatus.queued)
+                .where(
+                    Run.status == RunStatus.queued,
+                    Run.gpu_type_required == gpu_type,
+                )
                 .with_for_update(skip_locked=True)
                 .limit(limit)
             )
             runs = result.scalars().all()
+            now = datetime.now(timezone.utc)
             for run in runs:
                 run.status = RunStatus.provisioning
+                run.provisioning_started_at = now
             await session.commit()
             return [(r.id, r.gpu_type_required) for r in runs]
+
+    @staticmethod
+    async def count_live_by_type() -> dict[GpuType, int]:
+        """Live GPUs per type = runs holding a VM (provisioning or running).
+
+        `claim_queued` flips a run to `provisioning` in the same transaction it
+        claims it, so this count reflects committed work immediately — it is the
+        authoritative basis for the per-type capacity gate.
+        """
+        async with db.AsyncSessionLocal() as session:
+            rows = (
+                await session.execute(
+                    select(Run.gpu_type_required, func.count())
+                    .where(Run.status.in_([RunStatus.provisioning, RunStatus.running]))
+                    .group_by(Run.gpu_type_required)
+                )
+            ).all()
+        return {gt: 0 for gt in GpuType} | {gt: n for gt, n in rows}
 
     @staticmethod
     async def has_active_run(model: str, engine: str) -> bool:
@@ -122,6 +145,7 @@ class RunRepository:
             if run is None:
                 raise ValueError(f"Run with id {run_id} not found")
             run.status = RunStatus.provisioning
+            run.provisioning_started_at = datetime.now(timezone.utc)
             await session.commit()
 
     @staticmethod
@@ -200,14 +224,16 @@ class RunRepository:
 
         A run can get stuck in `provisioning` if terraform hangs, the
         orchestrator crashed mid-apply, or any unhandled path skipped the
-        `set_running`/`set_failed` transition. `created_at` is used as the
-        reference point since runs do not record a provisioning-start
-        timestamp.
+        `set_running`/`set_failed` transition. Measured from
+        `provisioning_started_at` (when the run actually entered provisioning),
+        coalescing to `created_at` for legacy rows — so time spent waiting in
+        `queued` for a free GPU slot never trips the timeout.
         """
         async with db.AsyncSessionLocal() as session:
+            started = func.coalesce(Run.provisioning_started_at, Run.created_at)
             result = await session.execute(
                 select(Run)
-                .where(Run.status == RunStatus.provisioning, Run.created_at < cutoff)
+                .where(Run.status == RunStatus.provisioning, started < cutoff)
                 .with_for_update(skip_locked=True)
             )
             runs = result.scalars().all()

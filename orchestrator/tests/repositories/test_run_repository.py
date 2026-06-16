@@ -90,7 +90,7 @@ class TestGetAndGetAll:
 class TestClaimQueued:
     async def test_returns_empty_for_non_positive_limit(self, session_factory):
         """Given limit<=0, When claim_queued, Then no DB hit, empty list."""
-        assert await RunRepository.claim_queued(0) == []
+        assert await RunRepository.claim_queued(GpuType.L40S, 0) == []
 
     async def test_transitions_claimed_runs_to_provisioning(self, session_factory):
         """
@@ -103,7 +103,7 @@ class TestClaimQueued:
         await _add_run(status=RunStatus.queued)
 
         # When
-        claimed = await RunRepository.claim_queued(1)
+        claimed = await RunRepository.claim_queued(GpuType.L40S, 1)
 
         # Then
         assert len(claimed) == 1
@@ -111,6 +111,45 @@ class TestClaimQueued:
         assert gpu == GpuType.L40S
         run = await _get(run_id)
         assert run.status == RunStatus.provisioning
+
+    async def test_claims_only_requested_gpu_type(self, session_factory):
+        """
+        Given a queued L40S run and a queued H100 run
+        When  claim_queued(H100)
+        Then  only the H100 run is claimed; the L40S one stays queued
+        """
+        # Given
+        l40s = await _add_run(status=RunStatus.queued, gpu_type_required=GpuType.L40S)
+        h100 = await _add_run(status=RunStatus.queued, gpu_type_required=GpuType.H100)
+
+        # When
+        claimed = await RunRepository.claim_queued(GpuType.H100, 10)
+
+        # Then
+        assert {run_id for run_id, _ in claimed} == {h100.id}
+        assert (await _get(l40s.id)).status == RunStatus.queued
+
+
+class TestCountLiveByType:
+    async def test_counts_provisioning_and_running_per_type(self, session_factory):
+        """
+        Given runs across statuses and GPU types
+        When  count_live_by_type
+        Then  only provisioning/running runs are counted, grouped by type
+        """
+        # Given
+        await _add_run(status=RunStatus.provisioning, gpu_type_required=GpuType.H100)
+        await _add_run(status=RunStatus.running, gpu_type_required=GpuType.H100)
+        await _add_run(status=RunStatus.running, gpu_type_required=GpuType.L40S)
+        await _add_run(status=RunStatus.queued, gpu_type_required=GpuType.L40S)
+        await _add_run(status=RunStatus.done, gpu_type_required=GpuType.L40S)
+
+        # When
+        live = await RunRepository.count_live_by_type()
+
+        # Then
+        assert live[GpuType.H100] == 2
+        assert live[GpuType.L40S] == 1
 
 
 class TestHasActiveRun:
@@ -267,6 +306,29 @@ class TestReapers:
         # Then
         assert run.id in ids
         assert (await _get(run.id)).status == RunStatus.failed
+
+    async def test_provisioning_timeout_ignores_queue_wait(self, session_factory):
+        """
+        Given a run created long ago but only just entered provisioning
+        When  claim_provisioning_timed_out runs with a 1h cutoff
+        Then  it is NOT reaped — the queue wait must not count against the
+              provisioning timeout (the capacity-gate regression).
+        """
+        # Given
+        old = datetime.now(timezone.utc) - timedelta(hours=2)
+        now = datetime.now(timezone.utc)
+        run = await _add_run(
+            status=RunStatus.provisioning,
+            created_at=old,
+            provisioning_started_at=now,
+        )
+
+        # When
+        ids = await RunRepository.claim_provisioning_timed_out(now - timedelta(hours=1))
+
+        # Then
+        assert run.id not in ids
+        assert (await _get(run.id)).status == RunStatus.provisioning
 
 
 class TestRequeueForRetry:
