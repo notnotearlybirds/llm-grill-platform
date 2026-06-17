@@ -19,6 +19,9 @@
 
 	let catalogs = $state<Catalogs | null>(null);
 	let error = $state<string | null>(null);
+	let homeUrl = $state<string | null>(null);
+
+	const KNOWN_HOMES = ['gireg.fr', 'karimsayadi.fr'];
 
 	let xKey = $state<MetricKey>('tokens_per_sec');
 	let yKey = $state<MetricKey>('ttft_mean');
@@ -46,6 +49,24 @@
 		fetchCatalogs()
 			.then((c) => (catalogs = c))
 			.catch((e) => (error = e instanceof Error ? e.message : String(e)));
+
+		const stored = localStorage.getItem('home_referrer');
+		if (stored) {
+			homeUrl = stored;
+		} else {
+			try {
+				const ref = new URL(document.referrer);
+				const matched = KNOWN_HOMES.some(
+					(h) => ref.hostname === h || ref.hostname.endsWith('.' + h)
+				);
+				if (matched) {
+					localStorage.setItem('home_referrer', ref.origin);
+					homeUrl = ref.origin;
+				}
+			} catch {
+				// document.referrer vide ou invalide — pas de bouton home
+			}
+		}
 	});
 
 	const models = $derived(catalogs?.models ?? []);
@@ -126,7 +147,7 @@
 </script>
 
 <div class="app">
-	<Header {totalModels} totalBackends={engines.length} />
+	<Header {totalModels} totalBackends={engines.length} {homeUrl} />
 
 	{#if error}
 		<div class="status status-err">failed to load benchmark data — {error}</div>
