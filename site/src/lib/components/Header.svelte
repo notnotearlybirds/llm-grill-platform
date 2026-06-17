@@ -2,7 +2,7 @@
 	let { totalModels, totalBackends, homeUrl }: {
 		totalModels: number;
 		totalBackends: number;
-		homeUrl: string | null;
+		homeUrl: string;
 	} = $props();
 </script>
 
@@ -24,14 +24,12 @@
 	<div class="hdr-r">
 		<div class="stat"><span class="stat-n">{totalModels}</span><span class="stat-l">models</span></div>
 		<div class="stat"><span class="stat-n">{totalBackends}</span><span class="stat-l">backends</span></div>
-		{#if homeUrl}
-			<a class="gh-link home-link" href={homeUrl} title="home" aria-label="home">
-				<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-					<path d="M1 7L7 1l6 6" />
-					<path d="M2.5 5.5V13h3.5V9h2v4h3.5V5.5" />
-				</svg>
-			</a>
-		{/if}
+		<a class="gh-link home-link" href={homeUrl} title="home" aria-label="home">
+			<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+				<path d="M1 7L7 1l6 6" />
+				<path d="M2.5 5.5V13h3.5V9h2v4h3.5V5.5" />
+			</svg>
+		</a>
 		<a class="gh-link" title="github" href="https://github.com/notnotearlybirds/llm-grill-platform" aria-label="GitHub" target="_blank" rel="noopener noreferrer">
 			<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"
 				><path
