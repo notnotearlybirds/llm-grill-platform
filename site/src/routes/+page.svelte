@@ -52,7 +52,15 @@
 		try {
 			const stored = localStorage.getItem('home_referrer');
 			if (stored) {
-				homeUrl = stored;
+				try {
+					const storedHost = new URL(stored).hostname;
+					const known = KNOWN_HOMES.some(
+						(h) => storedHost === h || storedHost.endsWith('.' + h)
+					);
+					homeUrl = known ? stored : 'https://gireg.fr';
+				} catch {
+					homeUrl = 'https://gireg.fr';
+				}
 			} else {
 				try {
 					const ref = new URL(document.referrer);
@@ -68,7 +76,8 @@
 				}
 			}
 		} catch {
-			// localStorage unavailable (disabled storage, strict privacy settings) — no home button
+			// localStorage unavailable (disabled storage, strict privacy settings) — fallback to default home
+			homeUrl = 'https://gireg.fr';
 		}
 	});
 
