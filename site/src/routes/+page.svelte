@@ -78,9 +78,15 @@
 	const shapeMap = $derived(new Map(engines.map((e, i) => [e.id, i])));
 
 	// Single chart sizing.
-	const hpad = $derived(containerW < 900 ? 32 : 48);
-	const chartW = $derived(containerW > 0 ? containerW - hpad : 0);
-	const chartH = $derived(Math.floor(Math.max(300, Math.min(500, chartW * 0.42))));
+	const CHART_RATIO = 0.42;        // height-to-width aspect ratio
+	const CHART_H_MIN = 300;         // floor: enough vertical room to read the scatter
+	const CHART_H_MAX_SM = 460;      // cap on narrow viewports (< 900 px wide)
+	const CHART_H_MAX_LG = 560;      // cap on wider viewports — taller to preserve visual balance
+
+	const hpad    = $derived(containerW < 900 ? 32 : 48);
+	const chartW  = $derived(containerW > 0 ? containerW - hpad : 0);
+	const chartHMax = $derived(containerW < 900 ? CHART_H_MAX_SM : CHART_H_MAX_LG);
+	const chartH  = $derived(Math.floor(Math.max(CHART_H_MIN, Math.min(chartHMax, chartW * CHART_RATIO))));
 
 	// Tooltip(s): the hovered row wins; otherwise show every pinned row so two models
 	// can be compared side by side (single-pin gave no comparison before).
