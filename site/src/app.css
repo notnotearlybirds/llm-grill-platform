@@ -59,8 +59,7 @@ select {
 }
 
 .app {
-	height: 100dvh;
-	overflow: hidden;
+	min-height: 100vh;
 	display: flex;
 	flex-direction: column;
 	padding: 0;
