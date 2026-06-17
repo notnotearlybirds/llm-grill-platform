@@ -41,6 +41,7 @@
 	let hovered = $state<string | null>(null);
 
 	let containerW = $state(0);
+	let containerH = $state(0);
 
 	onMount(() => {
 		fetchCatalogs()
@@ -80,7 +81,8 @@
 	// Single chart sizing.
 	const hpad = $derived(containerW < 900 ? 32 : 48);
 	const chartW = $derived(containerW > 0 ? containerW - hpad : 0);
-	const chartH = $derived(Math.floor(Math.max(400, Math.min(700, chartW * 0.58))));
+	const vpad = 32; // 16px top + 16px bottom padding inside .charts
+	const chartH = $derived(containerH > 0 ? Math.max(200, containerH - vpad) : 0);
 
 	// Tooltip(s): the hovered row wins; otherwise show every pinned row so two models
 	// can be compared side by side (single-pin gave no comparison before).
@@ -163,8 +165,8 @@
 			{onToggleEngine}
 		/>
 
-		<section class="charts" bind:clientWidth={containerW}>
-			{#if chartW > 0}
+		<section class="charts" bind:clientWidth={containerW} bind:clientHeight={containerH}>
+			{#if chartW > 0 && chartH > 0}
 				<Scatter
 					data={filtered}
 					{xKey}
