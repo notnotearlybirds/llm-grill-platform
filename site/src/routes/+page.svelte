@@ -7,7 +7,7 @@
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Footer from '$lib/components/Footer.svelte';
 	import { fetchCatalogs, buildView, type Catalogs } from '$lib/data';
-	import { KNOWN_HOMES } from '$lib/config';
+	import { DEFAULT_HOME_URL, HOME_REFERRER_KEY, isKnownHome } from '$lib/config';
 	import type { MetricKey } from '$lib/metrics';
 	import type { ConcurrencyLevel, ViewRow } from '$lib/types';
 
@@ -50,25 +50,18 @@
 			.catch((e) => (error = e instanceof Error ? e.message : String(e)));
 
 		try {
-			const stored = localStorage.getItem('home_referrer');
+			const stored = localStorage.getItem(HOME_REFERRER_KEY);
 			if (stored) {
 				try {
-					const storedHost = new URL(stored).hostname;
-					const known = KNOWN_HOMES.some(
-						(h) => storedHost === h || storedHost.endsWith('.' + h)
-					);
-					homeUrl = known ? stored : 'https://gireg.fr';
+					homeUrl = isKnownHome(new URL(stored).hostname) ? stored : DEFAULT_HOME_URL;
 				} catch {
-					homeUrl = 'https://gireg.fr';
+					homeUrl = DEFAULT_HOME_URL;
 				}
 			} else {
 				try {
 					const ref = new URL(document.referrer);
-					const matched = KNOWN_HOMES.some(
-						(h) => ref.hostname === h || ref.hostname.endsWith('.' + h)
-					);
-					if (matched) {
-						localStorage.setItem('home_referrer', ref.origin);
+					if (isKnownHome(ref.hostname)) {
+						localStorage.setItem(HOME_REFERRER_KEY, ref.origin);
 						homeUrl = ref.origin;
 					}
 				} catch {
@@ -76,8 +69,8 @@
 				}
 			}
 		} catch {
-			// localStorage unavailable (disabled storage, strict privacy settings) — fallback to default home
-			homeUrl = 'https://gireg.fr';
+			// localStorage unavailable (disabled storage, strict privacy settings) — show default home
+			homeUrl = DEFAULT_HOME_URL;
 		}
 	});
 
