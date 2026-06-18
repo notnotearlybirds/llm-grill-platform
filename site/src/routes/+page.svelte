@@ -7,6 +7,7 @@
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Footer from '$lib/components/Footer.svelte';
 	import { fetchCatalogs, buildView, type Catalogs } from '$lib/data';
+	import { DEFAULT_HOME_URL, HOME_REFERRER_KEY, isKnownHome } from '$lib/config';
 	import type { MetricKey } from '$lib/metrics';
 	import type { ConcurrencyLevel, ViewRow } from '$lib/types';
 
@@ -19,6 +20,7 @@
 
 	let catalogs = $state<Catalogs | null>(null);
 	let error = $state<string | null>(null);
+	let homeUrl = $state(DEFAULT_HOME_URL);
 
 	let xKey = $state<MetricKey>('tokens_per_sec');
 	let yKey = $state<MetricKey>('ttft_mean');
@@ -42,10 +44,30 @@
 
 	let containerW = $state(0);
 
+	function resolveHomeUrl(): string {
+		try {
+			const stored = localStorage.getItem(HOME_REFERRER_KEY);
+			if (stored && isKnownHome(new URL(stored).hostname)) return stored;
+
+			if (document.referrer) {
+				const ref = new URL(document.referrer);
+				if (isKnownHome(ref.hostname)) {
+					localStorage.setItem(HOME_REFERRER_KEY, ref.origin);
+					return ref.origin;
+				}
+			}
+		} catch {
+			// storage blocked or a malformed URL — fall through to the default
+		}
+		return DEFAULT_HOME_URL;
+	}
+
 	onMount(() => {
 		fetchCatalogs()
 			.then((c) => (catalogs = c))
 			.catch((e) => (error = e instanceof Error ? e.message : String(e)));
+
+		homeUrl = resolveHomeUrl();
 	});
 
 	const models = $derived(catalogs?.models ?? []);
@@ -132,7 +154,7 @@
 </script>
 
 <div class="app">
-	<Header {totalModels} totalBackends={engines.length} />
+	<Header {totalModels} totalBackends={engines.length} {homeUrl} />
 
 	{#if error}
 		<div class="status status-err">failed to load benchmark data — {error}</div>

@@ -1,10 +1,9 @@
 <script lang="ts">
-	let { totalModels, totalBackends }: {
+	let { totalModels, totalBackends, homeUrl }: {
 		totalModels: number;
 		totalBackends: number;
+		homeUrl: string;
 	} = $props();
-
-	const homeUrl = 'https://gireg.fr';
 </script>
 
 <header class="hdr">
