@@ -1,0 +1,138 @@
+// Architecture model — llm-grill-platform (LikeC4)
+// Preview : npx likec4 start docs/architecture
+// Export  : npx likec4 export png -o docs/architecture/assets docs/architecture
+//           (PDF: run `npx likec4 start`, then Export > PDF in the browser)
+
+specification {
+  element actor     { style { shape person } }
+  element system
+  element container
+  element component
+
+  tag external
+  tag storage
+  tag ephemeral
+  tag ci
+}
+
+model {
+  editor  = actor 'Maintainer' {
+    description 'Edits models.yaml / scenarios, triggers benchmarks'
+  }
+  visitor = actor 'Visitor' {
+    description 'Browses the public leaderboard'
+  }
+
+  github = system 'GitHub Actions' {
+    #external #ci
+    description 'CI: provision, bench, publish, deploy'
+  }
+  hf = system 'HuggingFace' {
+    #external
+    description 'Model downloads (gated)'
+  }
+
+  platform = system 'llm-grill-platform' {
+
+    orchestrator = container 'Orchestrator' {
+      #ephemeral
+      technology 'FastAPI / Python · ephemeral Terraform VM'
+      description 'Queues runs, provisions GPU VMs, aggregates the leaderboard'
+
+      api    = component 'HTTP API'        { technology 'FastAPI · routers/' }
+      ctrl   = component 'Controllers'     { technology 'controllers/' }
+      svc    = component 'Services (core)' { technology 'services/ — bench, run, node, result' }
+      orch   = component 'Orchestration'   { technology 'orchestrator.py — run loop' }
+      agg    = component 'Aggregation'     { technology 'aggregation.py — leaderboard compute' }
+      cat    = component 'Catalog'         { technology 'catalog.py — models/scenarios/engines' }
+      repo   = component 'Repositories'    { technology 'repositories/ — SQLAlchemy async' }
+      tfad   = component 'Terraform Adapter' { technology 'infra/terraform.py' }
+      s3ad   = component 'Storage Adapter' { technology 'storage.py — S3 / boto3' }
+
+      api  -> ctrl 'delegates'
+      ctrl -> svc  'calls'
+      svc  -> orch 'launches runs'
+      svc  -> cat  'publishes catalogs'
+      svc  -> repo 'reads/writes'
+      orch -> agg  'aggregates'
+      orch -> tfad 'provisions / destroys'
+      agg  -> s3ad 'writes leaderboard'
+      cat  -> s3ad 'writes catalogs'
+    }
+
+    db = container 'PostgreSQL' {
+      #storage #ephemeral
+      technology 'PostgreSQL 18 · SQLAlchemy async + Alembic'
+      description 'Run state — destroyed with the orchestrator VM'
+    }
+
+    gpuvm = container 'GPU Runner' {
+      #ephemeral
+      technology 'Terraform + cloud-init + Docker · one GPU VM per run'
+      description 'Runs llm-grill on vLLM / llama.cpp'
+    }
+
+    site = container 'Dashboard' {
+      technology 'SvelteKit static · Cloudflare Pages'
+      description 'Interactive scatter, vLLM vs llama.cpp'
+    }
+  }
+
+  s3 = system 'Scaleway S3' {
+    #external #storage
+    description 'Durable store: leaderboard.json · models/scenarios/engines.json · results/'
+  }
+
+  // Cross-system flows
+  editor  -> github 'Push models.yaml / dispatch'
+  visitor -> site   'Browses' 'HTTPS'
+
+  github -> orchestrator 'Provisions (Terraform) + POST /bench'
+  github -> s3           'publish-catalogs.py'
+
+  repo  -> db    'reads/writes'
+  tfad  -> gpuvm 'apply / destroy'
+  s3ad  -> s3    'publishes'
+
+  gpuvm -> hf    'downloads models'
+  gpuvm -> s3    'uploads results + logs'
+  gpuvm -> api   'callback / status'
+
+  site  -> s3    'fetches JSON at runtime' 'HTTPS'
+}
+
+views {
+  // Single all-in-one view: actors, external systems,
+  // the 4 containers and the orchestrator's internal components.
+  view overview {
+    title 'llm-grill-platform — Overview'
+    include
+      editor, visitor,
+      github, hf, s3,
+      platform,
+      orchestrator, orchestrator.*,
+      db, gpuvm, site
+
+    autoLayout LeftRight
+
+    style element.tag = #external  { color slate }
+    style element.tag = #storage   { shape storage; color green }
+    style element.tag = #ephemeral { color amber }
+  }
+
+  // Simplified view for a blog post: container-level only,
+  // no orchestrator internals. Keeps the big picture readable.
+  view blog {
+    title 'llm-grill-platform — How it works'
+    include
+      editor, visitor,
+      github, hf, s3,
+      orchestrator, db, gpuvm, site
+
+    autoLayout LeftRight
+
+    style element.tag = #external  { color slate }
+    style element.tag = #storage   { shape storage; color green }
+    style element.tag = #ephemeral { color amber }
+  }
+}
