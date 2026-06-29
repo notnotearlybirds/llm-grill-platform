@@ -97,6 +97,33 @@ def _workspace(run_id: uuid.UUID) -> Path:
     return _WORKSPACES_DIR / str(run_id)
 
 
+# Per-run state object on the shared Scaleway tfstate bucket. Keying by run_id
+# means the state survives the orchestrator VM that created it, so a leftover GPU
+# VM can always be destroyed.
+_STATE_BUCKET = "llm-grill-platform-tfstate"
+
+
+def _state_key(run_id: uuid.UUID) -> str:
+    return f"gpu/{run_id}.tfstate"
+
+
+def _backend_config(run_id: uuid.UUID) -> list[str]:
+    """`-backend-config` flags supplying the per-run key + Scaleway S3 credentials
+    to the partial backend declared in infra/gpu-vm/versions.tf."""
+    return [
+        "-backend-config",
+        f"bucket={_STATE_BUCKET}",
+        "-backend-config",
+        f"key={_state_key(run_id)}",
+        "-backend-config",
+        f"region={settings.scw_region}",
+        "-backend-config",
+        f"access_key={settings.scw_access_key}",
+        "-backend-config",
+        f"secret_key={settings.scw_secret_key}",
+    ]
+
+
 async def _terraform(workspace: Path, *args: str) -> str:
     cmd = ["terraform", f"-chdir={workspace}", *args]
     proc = await asyncio.create_subprocess_exec(
@@ -189,7 +216,7 @@ async def provision_node(run: Run) -> tuple[str, str]:
         f"orchestrator_api_key={settings.api_key}",
     ]
 
-    await _terraform(workspace, "init", "-input=false")
+    await _terraform(workspace, "init", "-input=false", *_backend_config(run_id))
     await _terraform(workspace, "apply", "-auto-approve", "-input=false", *secret_vars)
 
     output = await _terraform(workspace, "output", "-json")
@@ -214,5 +241,28 @@ async def destroy_node(run_id: uuid.UUID) -> None:
     await _terraform(
         workspace, "destroy", "-auto-approve", "-input=false", *secret_vars
     )
+    await asyncio.to_thread(_delete_remote_state, run_id)
     await asyncio.to_thread(shutil.rmtree, workspace)
     logger.info("destroyed node for run {}", run_id)
+
+
+def _delete_remote_state(run_id: uuid.UUID) -> None:
+    """Remove the per-run state object after a clean destroy so the bench.yml
+    reaper only ever sees states for VMs that still need reclaiming.
+
+    Best-effort: the VM is already gone, so a failure here only leaves a stale
+    (empty) state object — the reaper will skip it. We log and swallow rather
+    than fail destroy_node over a cleanup step."""
+    import boto3
+
+    client = boto3.client(
+        "s3",
+        endpoint_url=f"https://s3.{settings.scw_region}.scw.cloud",
+        aws_access_key_id=settings.scw_access_key,
+        aws_secret_access_key=settings.scw_secret_key,
+        region_name=settings.scw_region,
+    )
+    try:
+        client.delete_object(Bucket=_STATE_BUCKET, Key=_state_key(run_id))
+    except Exception as exc:  # noqa: BLE001 - cleanup must not break teardown
+        logger.warning("failed to delete remote state for run {}: {}", run_id, exc)

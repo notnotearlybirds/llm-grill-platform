@@ -339,3 +339,47 @@ jobs:
             -target=scaleway_instance_server.orchestrator \
             -target=scaleway_instance_ip.orchestrator \
             -target=scaleway_instance_security_group.orchestrator
+
+      - name: Reap leftover GPU VMs
+        if: always()
+        working-directory: infra/gpu-vm
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
+          SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
+          SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+          SCW_REGION: ${{ secrets.SCW_REGION }}
+          STATE_BUCKET: llm-grill-platform-tfstate
+          # Destroy reads resource attributes from state; variables are only
+          # needed to satisfy required-variable / provider validation.
+          TF_VAR_run_id: reaper
+          TF_VAR_gpu_type: H100
+          TF_VAR_instance_type: placeholder
+          TF_VAR_orchestrator_url: http://127.0.0.1
+          TF_VAR_hf_token: placeholder
+          TF_VAR_model: placeholder
+          TF_VAR_engine: vllm
+          TF_VAR_scenario_path: placeholder
+          TF_VAR_scenario_content: placeholder
+          TF_VAR_docker_image: placeholder
+        run: |
+          ENDPOINT="https://s3.${SCW_REGION}.scw.cloud"
+          keys=$(aws s3api list-objects-v2 --bucket "$STATE_BUCKET" --prefix gpu/ \
+            --endpoint-url "$ENDPOINT" --query 'Contents[].Key' --output text 2>/dev/null || true)
+          if [[ -z "$keys" || "$keys" == "None" ]]; then
+            echo "No leftover GPU state — nothing to reap."
+            exit 0
+          fi
+          for key in $keys; do
+            echo "::group::Reaping $key"
+            terraform init -reconfigure -input=false \
+              -backend-config="bucket=$STATE_BUCKET" \
+              -backend-config="key=$key" \
+              -backend-config="region=$SCW_REGION" \
+              -backend-config="access_key=$SCW_ACCESS_KEY" \
+              -backend-config="secret_key=$SCW_SECRET_KEY"
+            terraform destroy -auto-approve -input=false \
+              -var "hf_token=placeholder" -var "orchestrator_api_key=placeholder"
+            aws s3 rm "s3://$STATE_BUCKET/$key" --endpoint-url "$ENDPOINT"
+            echo "::endgroup::"
+          done
