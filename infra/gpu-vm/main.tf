@@ -39,7 +39,8 @@ resource "scaleway_instance_server" "gpu" {
   security_group_id = scaleway_instance_security_group.gpu.id
 
   root_volume {
-    size_in_gb = 250
+    size_in_gb            = 250
+    delete_on_termination = true
   }
 
   user_data = {

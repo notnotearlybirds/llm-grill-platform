@@ -289,12 +289,14 @@ class TestDestroyNode:
 
         mock_tf = AsyncMock(return_value="")
         mocker.patch("src.infra.terraform._terraform", mock_tf)
+        mock_state = mocker.patch("src.infra.terraform._delete_remote_state")
 
         # When
         await destroy_node(run_id)
 
         # Then
         mock_tf.assert_awaited_once()
+        mock_state.assert_called_once_with(run_id)
         assert not workspace.exists()
 
     async def test_should_skip_destroy_when_workspace_missing(self, tmp_path, mocker):
