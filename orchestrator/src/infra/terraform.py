@@ -99,7 +99,7 @@ def _workspace(run_id: uuid.UUID) -> Path:
 
 # Per-run state object on the shared Scaleway tfstate bucket. Keying by run_id
 # means the state survives the orchestrator VM that created it, so a leftover GPU
-# VM can always be destroyed
+# VM can always be destroyed.
 _STATE_BUCKET = "llm-grill-platform-tfstate"
 
 
@@ -248,7 +248,11 @@ async def destroy_node(run_id: uuid.UUID) -> None:
 
 def _delete_remote_state(run_id: uuid.UUID) -> None:
     """Remove the per-run state object after a clean destroy so the bench.yml
-    reaper only ever sees states for VMs that still need reclaiming."""
+    reaper only ever sees states for VMs that still need reclaiming.
+
+    Best-effort: the VM is already gone, so a failure here only leaves a stale
+    (empty) state object — the reaper will skip it. We log and swallow rather
+    than fail destroy_node over a cleanup step."""
     import boto3
 
     client = boto3.client(
@@ -258,4 +262,7 @@ def _delete_remote_state(run_id: uuid.UUID) -> None:
         aws_secret_access_key=settings.scw_secret_key,
         region_name=settings.scw_region,
     )
-    client.delete_object(Bucket=_STATE_BUCKET, Key=_state_key(run_id))
+    try:
+        client.delete_object(Bucket=_STATE_BUCKET, Key=_state_key(run_id))
+    except Exception as exc:  # noqa: BLE001 - cleanup must not break teardown
+        logger.warning("failed to delete remote state for run {}: {}", run_id, exc)

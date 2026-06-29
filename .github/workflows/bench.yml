@@ -350,7 +350,6 @@ jobs:
           SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
           SCW_REGION: ${{ secrets.SCW_REGION }}
           STATE_BUCKET: llm-grill-platform-tfstate
-          ENDPOINT: https://s3.fr-par.scw.cloud
           # Destroy reads resource attributes from state; variables are only
           # needed to satisfy required-variable / provider validation.
           TF_VAR_run_id: reaper
@@ -364,6 +363,7 @@ jobs:
           TF_VAR_scenario_content: placeholder
           TF_VAR_docker_image: placeholder
         run: |
+          ENDPOINT="https://s3.${SCW_REGION}.scw.cloud"
           keys=$(aws s3api list-objects-v2 --bucket "$STATE_BUCKET" --prefix gpu/ \
             --endpoint-url "$ENDPOINT" --query 'Contents[].Key' --output text 2>/dev/null || true)
           if [[ -z "$keys" || "$keys" == "None" ]]; then
